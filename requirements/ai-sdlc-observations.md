@@ -79,9 +79,25 @@ AI contribution:
 
 - Deployment platform is Fly.io, for both the Advisor Service and Postgres/`pgvector`, confirmed after a dedicated cost-comparison pass (Fly vs. Render vs. AWS/GCP) rather than on architecture fit alone — the human asked for cost implications before confirming, so the AI researched current 2026 pricing rather than relying on possibly-stale training knowledge.
 
-This closes every item in `architecture/domain-model.md`'s and `architecture/system-context.md`'s Open Architecture Questions sections. Next phase is a first vertical slice, human's call.
+This closes every item in `architecture/domain-model.md`'s and `architecture/system-context.md`'s Open Architecture Questions sections.
 
 AI contribution (cost pass):
 
 - Searched current Fly.io and Render pricing rather than answering from memory, since hosting prices change and the human's question was explicitly about present-day cost.
 - Distinguished hosting cost (platform-dependent, roughly comparable across Fly/Render/AWS at this scale) from usage-based provider cost (Claude generation, Voyage AI embeddings — scales with query volume, tracked separately, not a factor in the platform decision) so the two weren't conflated in the comparison.
+
+### 2026-07-31 Vertical Slice 0001: Definition, Grilling, And Implementation Planning
+
+Human direction: define a few first-slice options, then start implementation planning, per `sdlc-delivery-vertical-slice-planning`.
+
+AI contribution:
+
+- Proposed four slice options (stubbed-corpus Q&A, ingestion-only spike, full real thin slice, no-grounding path first), reasoning each against the requirements it would prove and the technical risk it would retire, and let the human choose rather than picking unilaterally.
+- Human chose the stubbed-corpus Q&A option (hand-seeded Passage, real retrieval/generation/citation loop, ingestion pipeline deferred). Wrote `architecture/vertical-slice-0001-grounded-query-answer-with-seeded-corpus.md` per the skill's required structure.
+- Surfaced two open questions the slice doc could not resolve alone (real vs. stubbed Claude calls in automated tests; checked-in seed script vs. one-off insert), each with a stated recommendation, grilled one at a time, and logged both as a single decision-log entry (Slice 0001 Test And Seed Approach) once confirmed — the human's stated preference for avoiding unnecessary spend directly shaped the first decision.
+- Read HiveSight's actual repo layout, `pyproject.toml`, and `docker-compose.yml` on disk before writing the implementation plan, rather than assuming a stack — confirmed FastAPI/pytest/pytest-bdd/ruff/psycopg on the Python side and pnpm/Vite/React/TS on the web side, and deliberately did not carry over HiveSight's Redis/MinIO services since neither has a justified use in this architecture (no async job, no binary object storage).
+- Wrote `architecture/implementation-plan-vertical-slice-0001.md`: one-time scaffolding, a proposed module layout, dependency-injection seams (each already justified by two real adapters — production and stub — per the two-adapter rule), and a TDD red-green sequence ordered by dependency, ending in an end-to-end acceptance test matching HiveSight's `test_vertical_slice_NNNN_bdd.py` convention.
+
+Human judgment still required:
+
+- Approve the implementation plan itself, or adjust before the first red-green cycle (health check) begins.

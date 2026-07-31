@@ -131,3 +131,11 @@ A second, distinct point is flagged rather than solved: local deletion is necess
 **Why**: V1 is one service and one small database with no scaling problem to solve yet, so a managed platform beats AWS/GCP on setup and ongoing ops time at this scale, at comparable dollar cost. Confirmed after a cost comparison: Fly and Render land in a similar $15–25/month range for this workload; AWS/GCP would be a similar dollar cost but with materially more setup and maintenance overhead (VPC, IAM, security groups) for a solo-maintained project. Fly's own Postgres pricing only jumps sharply at a 3-node production cluster tier, which is well beyond v1's actual need. LLM/embedding provider costs (Claude, Voyage AI) are usage-based and tracked separately from hosting, not a factor in this platform choice.
 
 **Resolved via**: grilling session with Claude, including a dedicated cost-implications pass before confirming.
+
+## 2026-07-31 Slice 0001 Test And Seed Approach
+
+**Decision**: For Vertical Slice 0001 (Grounded Query Answer With Seeded Corpus): the Claude generation call is stubbed behind a documented fixture in the default automated test suite, not called for real on every run; a real call is exercised manually, or via a separate live test not run on every commit, before the slice is considered done. The hand-seeded Passage is created via a checked-in, rerunnable seed script, not a one-off manual insert.
+
+**Why**: A real Claude call in every automated test run adds cost and flakiness unrelated to whether the code is correct — the thing worth testing automatically is that the right grounding context is sent and the response is parsed correctly, not whether the provider is reachable today. Mirrors the dependency-injection convention (`sdlc-delivery-dependency-injection`) of stubbing external adapters in the default test run. A checked-in seed script is reusable for slice 2 (a second jurisdiction, needed to actually prove FR-003), rather than redoing manual setup by hand each time.
+
+**Resolved via**: grilling session with Claude, during vertical slice planning for Slice 0001.

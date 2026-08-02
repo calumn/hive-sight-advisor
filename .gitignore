@@ -1,3 +1,6 @@
 .venv-advisor-api/
 __pycache__/
 *.pyc
+.env
+.env.local
+node_modules/

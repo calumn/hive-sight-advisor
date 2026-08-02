@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #faf7f2;
+  color: #1f1a14;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+h1 {
+  margin-bottom: 0.25rem;
+}
+
+.tagline {
+  color: #6b5f4f;
+  margin-top: 0;
+  margin-bottom: 2rem;
+}
+
+.query-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e4dccb;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.query-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a4033;
+}
+
+.query-form select,
+.query-form textarea {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #d8cdb6;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.query-form button {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: #b5651d;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.query-form button:disabled {
+  background: #cbb89a;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #a4242c;
+  margin-top: 1rem;
+}
+
+.answer-view {
+  margin-top: 1.5rem;
+  background: #fff;
+  border: 1px solid #e4dccb;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.answer-text {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.answer-status {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b5f4f;
+  margin-top: 0.75rem;
+}
+
+.answer-citations {
+  margin-top: 0.5rem;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: #4a4033;
+}

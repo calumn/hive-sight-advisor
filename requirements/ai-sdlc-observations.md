@@ -101,3 +101,113 @@ AI contribution:
 Human judgment still required:
 
 - Approve the implementation plan itself, or adjust before the first red-green cycle (health check) begins.
+
+### 2026-08-02 Vertical Slice 0001: Scaffolding And First TDD Cycle
+
+Human direction: proceed with the implementation plan.
+
+AI contribution:
+
+- Built the one-time scaffolding from the plan: `services/advisor-api/pyproject.toml` (modelled on HiveSight core-api's, with this project's actual dependencies — `anthropic`, `voyageai`, `pgvector` — swapped in), a typed `settings.py`, `docker-compose.yml` using `pgvector/pgvector:pg16` (not plain `postgres:16`), and `.env.example`.
+- Found a stale, broken local Python environment (`.venv-advisor-api`, Python 3.10 from an earlier abandoned attempt) that didn't match the `pyproject.toml` requirement of Python 3.12+; recreated it against the correct interpreter rather than debugging the mismatch in place.
+- Ran the first TDD cycle (health check) red-before-green: wrote `tests/test_health.py` against a not-yet-existing `main.py`, confirmed it failed for the expected reason (`ModuleNotFoundError`), then wrote the thin `main.py` app factory and confirmed it passed. `ruff check` clean.
+
+Human judgment still required:
+
+- Nothing blocking; next cycle (corpus repository / pgvector retrieval seam) needs a running Postgres (`docker-compose up postgres`) since it's an integration test against a real database, not stubbed.
+
+### 2026-08-02 Vertical Slice 0001: Corpus Repository / pgvector Retrieval Cycle
+
+Human direction: bring up the database, then continue.
+
+AI contribution:
+
+- HiveSight's own Postgres container already held port 5432; rather than touch that project's container, moved this project's `docker-compose.yml` and default `DATABASE_URL` to port 5433, since the two products are meant to run independently and side by side.
+- Chose `voyage-3-large`'s 1024-dimension output for the `passages.embedding` column, matching the Generation And Embedding Providers decision, since that's the currently recommended Voyage model.
+- Wrote a HiveSight-style numbered-SQL migration runner (`db.py`, `migrations/0001_slice_0001_corpus.sql`) covering only `jurisdictions`, `corpus_documents`, and `passages` — deliberately not `workspaces`/`users`/`queries`/etc. yet, since those aren't needed until later cycles (schema grows one migration at a time, same discipline as the TDD sequence itself). Followed the slice doc's minimal Data Shape list over the fuller domain-model field list for now.
+- Ran the retrieval cycle red-before-green: wrote `test_corpus_repository.py` against a real Postgres/pgvector test database (seeding two passages with distinct embeddings, asserting the nearer one is returned), confirmed it failed on a missing module, then implemented `CorpusRepository.find_similar_passages`.
+- Hit and fixed one real pgvector/psycopg issue along the way: an untyped query parameter compared against a `vector` column raised `operator does not exist: vector <=> double precision[]` — fixed with an explicit `%s::vector` cast in the query, since the driver has no column-type context to infer from in a bare `ORDER BY` expression the way it does for an `INSERT`.
+- `ruff check` clean; both tests (health, corpus repository) passing.
+
+Human judgment still required:
+
+- Nothing blocking; next cycle (embedding adapter seam — stub first, Voyage live test separate) can proceed.
+
+### 2026-08-02 Vertical Slice 0001: Embedding Adapter Seam
+
+Human direction: continue.
+
+AI contribution:
+
+- Defined the `EmbeddingProvider` seam as a `Protocol` in its own module (`adapters/embedding_provider.py`) rather than folding it into either adapter file, so neither adapter has to import from the other and both depend only on the shared contract.
+- Ran the stub adapter cycle red-before-green: `StubEmbeddingProvider` is a deterministic hash-based vector (same text → same vector, different text → different vector), covering the actual seam requirement (a real, reusable contract for tests) without needing network access.
+- Wrote the production `VoyageEmbeddingProvider` alongside it, explicitly requesting `voyage-3-large`'s output at 1024 dimensions to match the `passages.embedding` column from the previous cycle, rather than trusting a model default that could silently drift.
+- Per the plan's explicit deferral ("the Voyage adapter's contract test can be a separate, explicitly-marked live test"), added that live test gated with `@pytest.mark.skipif(not os.getenv("VOYAGE_API_KEY"), ...)`, matching HiveSight's own convention for real-provider integration tests (`test_postgres_persistence_slice.py`). It skips by default and only runs if a real key is exported.
+- 3 passed, 1 skipped (the live test, correctly, since no key is set), `ruff check` clean.
+
+Human judgment still required:
+
+- Nothing blocking. Next cycle is the generation boundary seam (`GenerationProvider.generate_answer`, tested against `generation_stub.py` per the Slice 0001 Test And Seed Approach decision).
+
+### 2026-08-02 Vertical Slice 0001: Generation Boundary Seam
+
+Human direction: continue; also asked which Claude model ID to default to and whether prompt caching mattered here.
+
+AI contribution:
+
+- Checked current Anthropic model guidance before hardcoding an ID rather than trusting training-data defaults (models change fast): the guidance is to default to Claude Opus 5 and treat cost tuning as `effort`/thinking configuration, not a smaller model — never silently downgrade model choice for cost, since that's the human's call. Set `output_config.effort: "low"` on the production adapter instead, since grounded-QA-over-one-short-passage is a genuinely low-effort task.
+- Checked whether prompt caching was worth adding for this seam: concluded no, since Claude Opus 5's minimum cacheable prefix (512 tokens) is larger than this adapter's system prompt, so a cache breakpoint here wouldn't actually take effect at this scale. Left it out rather than adding inert complexity.
+- Used `output_config.format` (structured JSON output: `answer` + `cited_passage_ids`) for the production adapter instead of parsing citations out of free text — more reliable than regex/string matching for a field the rest of the system depends on (Citation persistence, next cycle).
+- Ran the stub cycle red-before-green as with the other seams; wrote the production `ClaudeGenerationProvider` and a live contract test gated the same way as Voyage's (`skipif` on `ANTHROPIC_API_KEY`), consistent with the Slice 0001 Test And Seed Approach decision.
+- 4 passed, 2 skipped (both live tests, correctly, with no keys set), `ruff check` clean.
+
+Human judgment still required:
+
+- Nothing blocking. All three seam-level cycles (retrieval, embedding, generation) are now done; next cycle is the `answer_query` workflow that orchestrates them end-to-end (embed → retrieve → generate → persist).
+
+### 2026-08-02 Vertical Slice 0001: answer_query Workflow Orchestration
+
+Human direction: continue.
+
+AI contribution:
+
+- Kept this cycle scoped strictly to orchestration logic, per the plan's explicit test-style call-out ("repository and both providers injected as stubs/test doubles") and the "no anticipating later cycles" TDD discipline: `QueryRepository` is defined here only as a `Protocol` (the persistence contract), with no Postgres-backed implementation yet — that's deferred to the API-endpoint cycle (6), which is the first point anything actually needs a real database write. Building it now would have been implementation work the current cycle doesn't call for.
+- `AnswerQueryWorkflow.answer_query` composes the three already-built seams (embed → `find_similar_passages` → `generate_answer`) and derives `grounding_status` from whether any citations came back, rather than trusting the generation provider to report it — keeps the domain invariant (grounded/partial/ungrounded answers have the right citation count) enforced in one place.
+- Reused the real `StubEmbeddingProvider` and `StubGenerationProvider` adapters from the previous two cycles in this workflow's test, rather than writing new ad-hoc fakes for them — only `CorpusRepository` and `QueryRepository` needed test doubles, since those don't have a checked-in stub yet.
+- Ran red-before-green as with every prior cycle. 5 passed, 2 skipped (the two live provider tests, correctly), `ruff check` clean.
+
+Human judgment still required:
+
+- Nothing blocking. Next cycle is the `POST /queries` API endpoint (dev-authenticated request with valid Workspace Membership returns 200 with Answer + Citation; without valid membership, rejected) — this is the first cycle that needs real Workspace/Membership schema and the Postgres-backed `QueryRepository`, per the deferred-until-needed approach above.
+
+### 2026-08-02 Vertical Slice 0001: POST /queries API Endpoint
+
+Human direction: continue.
+
+AI contribution:
+
+- Added migration `0002`: `users`, `workspaces`, `workspace_memberships` (needed now for the dev-auth precondition, even though they weren't in the slice's minimal Data Shape list, since the slice doc's Preconditions section explicitly calls for a Workspace Membership check), plus `queries`, `answers`, `citations` — following the slice's minimal Query shape from cycle 2/4's precedent (no `created_by_user_id`, even though the full domain model lists it as essential) rather than reopening the already-tested workflow's signature from the previous cycle.
+- Modeled dev-auth and the membership check on HiveSight core-api's own pattern (read `main.py`/`dev_store.py` directly rather than inventing a new convention): header-based dev user resolution, a membership check before any workflow work happens, rejecting with 403 before either the corpus or generation seam is touched.
+- Wired dependency injection (`dependencies.py`) so `EmbeddingProvider`/`GenerationProvider` fall back to their stub adapters whenever `VOYAGE_API_KEY`/`ANTHROPIC_API_KEY` aren't set — meaning the integration test needed no explicit stub override, only a real-Postgres override for the DB connection (`CorpusRepository`/`QueryRepository` are exercised for real, per the plan's "not mocked" guidance for those two; the provider seams are stubbed by environment absence, not by test-time patching).
+- Ran red-before-green for both the happy path (valid membership → 200, grounded answer, correct citation) and the rejection path (no membership → 403) in one integration test file, matching the plan's Test Seams description for this cycle.
+- 7 passed, 2 skipped (the two live provider tests, correctly), `ruff check` clean after one auto-fixed import-sort nit.
+
+Human judgment still required:
+
+- Nothing blocking. Backend is now feature-complete for Slice 0001's Advisor Service; remaining plan steps (7–9) are the web API client seam, the web UI workflow, and the end-to-end acceptance test, plus the checked-in seed script (`scripts/seed_slice_0001.py`) for the hand-seeded Passage per the Slice 0001 Test And Seed Approach decision.
+
+### 2026-08-02 Vertical Slice 0001: End-To-End Demo (Web UI + Seed Script)
+
+Human direction: carry on until there's something demo-able from a frontend perspective.
+
+AI contribution:
+
+- Wrote `scripts/seed_slice_0001.py`: idempotent (`ON CONFLICT ... DO NOTHING` throughout), fixed dev IDs so the frontend can hardcode them without a registration flow, and a real Voyage embedding call for the seeded Passage rather than a fabricated vector — matching both the plan's Seed Script section and the Slice 0001 Test And Seed Approach decision.
+- Scaffolded `apps/web` (Vite + React + TS, modelled on HiveSight's `apps/web` conventions — same `devAuthHeaders`/`ensureOk`/manual runtime-validation parsing pattern in the API client, just scoped to this one endpoint) with `QueryForm`, `AnswerView`, and a thin `App` wiring them to the real `/queries` endpoint.
+- **Caught a real secret-handling mistake before it became one**: the human pasted real Voyage/Anthropic API keys into `.env.example`, which is a tracked, non-gitignored file — checked `git status`/`git log` first (confirmed the file had never been committed, so nothing had actually leaked), then moved the keys to the already-gitignored `services/advisor-api/.env` and restored `.env.example` to placeholders. Edited that file with `sed` rather than reading it, specifically to avoid pulling the raw key values into this transcript.
+- Hit two port conflicts against the human's already-running HiveSight dev servers (Postgres on 5432 in the previous cycle; API on 8000 and web on 5173 here) — ran this project's servers on 5433/8010/5183 instead each time rather than touching the other project's processes, and the human confirmed 8000/5173 are reserved for HiveSight specifically.
+- Verified the full stack live in the browser pane (not Playwright — that's the separate, still-pending automated acceptance test from the plan): typed a real question, got a genuine Claude-generated answer grounded in the seeded passage, correctly citing it.
+
+Human judgment still required:
+
+- The manual demo pass is not a substitute for the plan's remaining automated coverage: `advisorApiClient.submitQuery` unit test (mocked fetch), a component-level test for the `QueryForm`/`AnswerView` workflow, and the `pytest-bdd` end-to-end acceptance test matching HiveSight's `test_vertical_slice_NNNN_bdd.py` convention. None of those exist yet.

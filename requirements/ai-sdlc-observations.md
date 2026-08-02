@@ -211,3 +211,83 @@ AI contribution:
 Human judgment still required:
 
 - The manual demo pass is not a substitute for the plan's remaining automated coverage: `advisorApiClient.submitQuery` unit test (mocked fetch), a component-level test for the `QueryForm`/`AnswerView` workflow, and the `pytest-bdd` end-to-end acceptance test matching HiveSight's `test_vertical_slice_NNNN_bdd.py` convention. None of those exist yet.
+
+### 2026-08-02 Vertical Slice 0001: Remaining Test Coverage (Client Unit Test, Web UI E2E)
+
+Human direction: build both remaining pieces — the client unit test, then the end-to-end acceptance test — parking lot item PARK-0001 (Playwright + Gherkin) resolved as part of this.
+
+AI contribution:
+
+- Added `vitest` to `apps/web` and wrote `advisorApiClient.submitQuery.test.ts` covering both the success path (correct request shape, parsed `Answer`) and the error path (non-ok response surfaces the server's `detail` message). Caught and fixed a real conflict: Vitest's default file discovery picked up Playwright-BDD's generated spec file (`.features-gen/**`) and failed to collect it (different `test` APIs) — scoped Vitest to `src/**/*.test.ts` via `vitest/config`'s `defineConfig` to fix it, rather than the fragile alternative of excluding the generated directory by name.
+- **Deviated from the plan's literal text on purpose**: the plan named `pytest-bdd` (matching HiveSight's Python API-level acceptance convention) for the end-to-end test, but the human's actual direction (parking lot PARK-0001) was Gherkin at the *web UI* layer specifically, driven by Playwright — a different layer than what HiveSight's `pytest-bdd` convention covers (HiveSight's own UI acceptance is plain Playwright specs, no Gherkin at all). Followed the human's explicit instruction over the plan's literal wording once the two diverged.
+- Chose `playwright-bdd` as the Gherkin-to-Playwright bridge over hand-wiring `@cucumber/cucumber` directly against Playwright, since it integrates with the existing `@playwright/test` config and runner rather than requiring a second test runner alongside it — lower integration surface for a single-developer project to maintain.
+- Wrote the acceptance scenario directly from the slice doc's own User Path section (`vertical_slice_0001_grounded_query_answer.feature`), so the executable spec and the design doc describe the same journey in the same order.
+- Built a `globalSetup` hook that seeds a dedicated `_test`-suffixed Postgres database with the stub embedding adapter before the run, and pinned the API server under test to that database with both provider API keys explicitly cleared — so the acceptance run is deterministic and cannot incur real Voyage/Claude spend regardless of what's in the developer's own `.env`. Ran on its own port pair (8020/5193), avoiding both this project's dev ports (8010/5183) and HiveSight's (8000/5173).
+- Hit one real tooling gap: `playwright-bdd` 9.x's `defineBddConfig` did not auto-generate test files on a plain `playwright test` run in this setup; added an explicit `bddgen` step ahead of it in the `test:acceptance` script rather than relying on undocumented auto-generation behavior.
+- Full suite green: Python (7 passed, 2 skipped — live provider tests correctly skip), Vitest (2 passed), Playwright acceptance (1 passed, ~5s).
+
+Human judgment still required:
+
+- All of Slice 0001's planned automated coverage now exists and passes. Nothing blocking for this slice; next scope decision is what to build for Slice 0002 (a second jurisdiction, per the slice doc's own stated next step for actually proving FR-003's non-blending requirement).
+
+### 2026-08-02 Vertical Slice 0002: Scoping (Second Jurisdiction, Non-Blending Proof)
+
+Human direction: scope Slice 0002.
+
+AI contribution:
+
+- Followed `sdlc-delivery-vertical-slice-planning`'s process rather than jumping straight to an implementation plan: read the decision log, `CONTEXT.md`, domain model, and Slice 0001's own doc first.
+- **Caught a factual error while gathering context, not incidentally**: `requirements/decision-log.md`'s V1 Jurisdiction Scope decision explicitly says HBHC is the *US* source and APHA BeeBase is the *UK* source, but Slice 0001's seed script had labelled the UK Corpus Document's source as "Healthy Bees Healthy Colonies (HBHC) guide" — backwards. Folded the correction into this slice's scope (and its own acceptance criterion) rather than filing it separately, since Slice 0002 is precisely the moment a genuine HBHC-sourced US document is added, which is when leaving the mislabel in place would go from merely inconsistent to actively misleading.
+- Checked the existing code before writing the slice, not just the docs: confirmed `CorpusRepository.find_similar_passages` already scopes retrieval by `jurisdiction_id` in its `WHERE` clause. This means FR-003's non-blending guarantee is already structurally enforced by construction — Slice 0002 doesn't need new prevention logic, only real second-Jurisdiction data and a test that actually exercises the filter with two Jurisdictions present (Slice 0001 only ever seeded one, so this path has never really been tested). This materially thinned the slice versus treating it as "build jurisdiction isolation."
+- Chose US Passage content deliberately distinct from the UK Passage's oxalic-acid-vaporisation focus (HBHC's registered-miticide rotation approach) rather than a reworded duplicate, so a real answer difference is demonstrable between Jurisdictions, not just a different source label on similar text.
+- Wrote `architecture/vertical-slice-0002-second-jurisdiction-and-non-blending-proof.md` per the skill's required structure. No open questions — the slice's shape follows directly from decisions already confirmed during Slice 0001 planning, so no fresh grilling was needed.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation planning/TDD begins, per the vertical-slice-planning skill's step 10.
+
+### 2026-08-02 Vertical Slice 0002: Implementation
+
+Human direction: approved; go ahead and implement.
+
+AI contribution:
+
+- Restructured `scripts/seed_slice_0001.py` from one hardcoded passage to a small `SeedJurisdiction` list, iterated once per jurisdiction, rather than duplicating the insert logic for a second jurisdiction inline — the script now naturally extends to a third jurisdiction (EU, when that's eventually unblocked) without another restructure.
+- Corrected the UK Corpus Document's `source` from the mislabelled "HBHC" to "APHA BeeBase" (with `Open Government Licence` as its licence, reflecting it being a UK government source, distinct from HBHC's `CC BY-NC-ND`) — and changed the seed script's `ON CONFLICT` handling on `corpus_documents`/`passages` from `DO NOTHING` to `DO UPDATE`, since a "rerunnable seed script" that can't actually correct a previously-seeded field isn't rerunnable in the way the decision log intended.
+- Wrote the new `CorpusRepository` test specifically to make the jurisdiction filter's absence would-be-detectable: seeded a second jurisdiction's passage as the *closer* vector match (distance 0) to the query embedding, so if the `WHERE jurisdiction_id = ...` clause were ever removed or broken, the test would fail by returning the wrong passage — not simply by returning zero results.
+- Kept Slice 0001's original feature file untouched and added a new `vertical_slice_0002_second_jurisdiction_non_blending.feature` rather than editing the first — each slice's executable spec still matches exactly what that slice proved, and the new one uses a Scenario Outline over both jurisdictions so the non-blending proof reads as one intentional check, not two copy-pasted scenarios.
+- Verified live in the browser after re-seeding the real dev database (real Voyage embeddings, real Claude generation): asking the same underlying question under UK vs. US jurisdiction returns genuinely different, jurisdiction-appropriate guidance (oxalic acid vaporisation vs. alcohol-wash threshold monitoring with product rotation) citing the correct jurisdiction's passage each time — not just structurally correct, but substantively demonstrating why blending would have been actively misleading.
+- Full suite green: Python (8 passed, 2 skipped), Vitest (2 passed), Playwright acceptance (3 passed — Slice 0001's original scenario plus both Slice 0002 outline examples).
+
+Human judgment still required:
+
+- Nothing blocking. Slice 0002's acceptance criteria are all met. Next scope decision is open — could be Slice 0003 (a further FR, e.g. source supersession/conflict detection or the no-grounding path) or hardening/ops work on what already exists.
+
+### 2026-08-02 Documentation: Business, Architecture, And Code Diagrams
+
+Human direction: draw a business picture, an architecture picture, and a code picture of what's been built; then roll those and their supporting detail into the appropriate markdown files.
+
+AI contribution:
+
+- Placed each diagram in the doc that already matched its audience rather than creating one dump file: the business diagram went into `requirements/vision.md` (a new "How It Works Today" section, tied to the two slice docs it demonstrates), the architecture diagram into `architecture/system-context.md` as a new "Current Implementation Snapshot" section rather than replacing the original planning diagram — the two are kept side by side with an explicit mapping (Advisor Service = Advisor API, Embedding/Generation Provider = Voyage AI/Claude, Advisor Data Store + Corpus Store = one Postgres database) so the planning artifact's history isn't lost.
+- Created `architecture/codebase-design.md` as a new file, modelled directly on HiveSight's own file of the same name and vocabulary (module/interface/seam/adapter/depth), since hive-sight-advisor didn't have an equivalent doc yet and the code-structure diagram needed somewhere durable to live.
+- Converted all three from the interactive SVG widgets shown in-chat to Mermaid, matching this repo's existing diagram convention (`system-context.md`, `domain-model-diagram.md` both already use Mermaid) rather than leaving them as one-off chat visuals with no source of truth in the repo.
+
+Human judgment still required:
+
+- None for this documentation pass. Same open scope question as above: what to build for Slice 0003.
+
+### 2026-08-02 Vertical Slice 0003 Scoping: No-Grounding Behaviour (FR-008)
+
+Human direction: check requirements/product spec for open scope before picking a next slice. Reviewed `requirements/requirements.md` directly against what Slices 0001–0002 actually cover (FR-000 through FR-003) rather than relying on memory, confirmed FR-004 through FR-008 and NFR-003 remain genuinely uncovered, and recommended FR-008 (no-grounding behaviour) as the next slice — it's the one gap in the core loop already being demoed, versus FR-004–007 which are additive capabilities on a loop that already works. Human agreed.
+
+AI contribution:
+
+- Drafted a mechanism (not yet a formal slice doc) surfacing four real open questions, then ran a one-question-at-a-time grilling session per `productivity-grilling` rather than presenting all four at once — each with a stated recommendation, each confirmed individually before moving to the next.
+- Caught the real gap driving this slice while drafting: `CorpusRepository.find_similar_passages` today always returns the closest Passage regardless of how far away it actually is — there is no threshold, so an entirely off-topic question would currently still be silently treated as grounded. The fix is exposing the similarity distance from retrieval and classifying against it, not building new prevention logic elsewhere.
+- Grilled and logged one combined decision-log entry (FR-008 Grounding Classification Mechanism) covering all four resolutions: deterministic distance threshold over model judgment (testability, no live-call dependency); skip the generation call entirely for `ungrounded` (nothing to ground a nuanced answer in, avoids unnecessary spend); pick provisional threshold values now rather than waiting for a calibration dataset that doesn't exist yet (the corpus only has two Passages); and include `partial`, not just a two-state split, since the domain model already carries that shape and the same mechanism produces it for free.
+- Wrote `architecture/vertical-slice-0003-no-grounding-behaviour.md` per the vertical-slice-planning skill's structure, with all open questions already resolved — nothing left open in the doc itself.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation/TDD begins.

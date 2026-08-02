@@ -1,0 +1,19 @@
+{
+  "name": "hive-sight-advisor",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:all": "node scripts/dev-servers.mjs start",
+    "dev:status": "node scripts/dev-servers.mjs status",
+    "dev:stop": "node scripts/dev-servers.mjs stop",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:migrate": "node scripts/run-with-env.mjs .venv-advisor-api/bin/python -m hive_sight_advisor_api.db migrate",
+    "db:seed": "node scripts/run-with-env.mjs .venv-advisor-api/bin/python scripts/seed_slice_0001.py",
+    "dev:web": "pnpm --filter hive-sight-advisor-web dev",
+    "build:web": "pnpm --filter hive-sight-advisor-web build",
+    "check:web": "pnpm --filter hive-sight-advisor-web check"
+  }
+}

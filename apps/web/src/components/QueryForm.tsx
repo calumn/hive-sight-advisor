@@ -1,6 +1,9 @@
 import { type FormEvent, useState } from "react";
 
-const JURISDICTIONS = [{ id: "00000000-0000-0000-0000-000000000401", label: "United Kingdom" }];
+const JURISDICTIONS = [
+  { id: "00000000-0000-0000-0000-000000000401", label: "United Kingdom" },
+  { id: "00000000-0000-0000-0000-000000000402", label: "United States" }
+];
 
 export type QueryFormProps = {
   onSubmit: (text: string, jurisdictionId: string) => void;

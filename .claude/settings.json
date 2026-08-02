@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(../../.venv-advisor-api/bin/python -m pytest *)",
+      "Bash(.venv-advisor-api/bin/python -m pytest *)",
+      "Bash(../../.venv-advisor-api/bin/ruff check *)",
+      "Bash(.venv-advisor-api/bin/ruff check *)",
+      "Bash(pnpm dev:status)",
+      "Bash(curl -s http://127.0.0.1:*)",
+      "Bash(curl -sv http://127.0.0.1:*)",
+      "Bash(source services/advisor-api/.env)",
+      "Bash(set -a)",
+      "Bash(set +a)"
+    ]
+  }
+}

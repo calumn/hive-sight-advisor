@@ -39,6 +39,24 @@ flowchart LR
     ingestion -. fetch, respecting licence terms .-> sources
 ```
 
+## Current Implementation Snapshot (Slice 0001–0002)
+
+The diagram above is the target v1 shape and still holds; this is what it concretely maps to as built. "Advisor Service" is the Advisor API (FastAPI, Python), "Client" is the web app (React + Vite), "Embedding Provider" is Voyage AI, "Generation Provider" is Claude, and Advisor Data Store plus Corpus Store are one Postgres database with the `pgvector` extension, not two physically separate stores. Corpus Ingestion is `scripts/seed_slice_0001.py`, a checked-in, rerunnable script — not yet a Corpus Curator-facing tool, since only two hand-picked source Passages exist so far.
+
+```mermaid
+flowchart LR
+    web["Web UI<br/>React + Vite"]
+    api["Advisor API<br/>FastAPI, Python"]
+    db[("Postgres<br/>pgvector search")]
+    voyage[("Voyage AI<br/>Embeds the query")]
+    claude[("Claude<br/>Generates the answer")]
+
+    web --> api
+    api --> db
+    api -. embed .-> voyage
+    api -. generate .-> claude
+```
+
 ## Boundaries
 
 ### User And Client Boundary

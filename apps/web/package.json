@@ -7,17 +7,23 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:acceptance": "bddgen && playwright test",
+    "test:acceptance:headed": "bddgen && playwright test --headed"
   },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright-bdd": "^9.2.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }

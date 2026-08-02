@@ -8,6 +8,24 @@ The product is meant to stand on its own. It should be useful to a beekeeper who
 
 The primary learning goal, alongside HiveSight's SDLC/predictive-AI focus, is to build a genuine generative-AI product — not a demo of retrieval-augmented generation, but something that earns its place by being useful on its own terms. A chatbot that answers questions correctly is not sufficient evidence of that; a beekeeper making a better-informed decision because of it is.
 
+## How It Works Today (Slice 0001–0002)
+
+The loop below is what a Beekeeper actually experiences right now, live: a question in, a cited answer out, never blended across jurisdictions.
+
+```mermaid
+flowchart TD
+    beekeeper["Beekeeper<br/>Asks a Varroa question"]
+    advisor["HiveSight Advisor<br/>Retrieves, then generates"]
+    corpus[("Curated corpus<br/>UK and US guidance")]
+    answer["Cited answer<br/>Grounded in one jurisdiction"]
+
+    beekeeper --> advisor
+    corpus --> advisor
+    advisor --> answer
+```
+
+Both jurisdictions are seeded today: UK guidance from APHA BeeBase, US guidance from the Honey Bee Health Coalition (HBHC). Selecting a Jurisdiction retrieves and cites only that Jurisdiction's source — the same question asked under each returns genuinely different, jurisdiction-appropriate guidance, not a reworded duplicate. See `architecture/vertical-slice-0001-grounded-query-answer-with-seeded-corpus.md` and `architecture/vertical-slice-0002-second-jurisdiction-and-non-blending-proof.md` for how this was built and proven.
+
 ## Product Direction
 
 Two phases, sequenced deliberately rather than built at once:

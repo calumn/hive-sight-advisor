@@ -387,3 +387,18 @@ Human judgment still required:
 
 - Push this to GitHub to see the pipeline actually execute for the first time — nothing here can be verified against real GitHub Actions infrastructure from this environment.
 - Decide next: FR-004/FR-006 (needs real source content first) vs. another Technical-category item from the roadmap.
+
+### 2026-08-03 CI Pipeline: First Real Run Caught A Genuine Bug
+
+Human direction: git policy was clarified (see memory — the "hands-off" rule had always meant confirm-each-action, not never-touch-git; a stale one-line summary in the memory index had drifted to say otherwise, and was corrected). User then asked to commit and push the roadmap/CI work directly.
+
+AI contribution:
+
+- After pushing, checked the actual GitHub Actions run via `gh run list`/`gh run view` rather than assuming success — the `acceptance` job failed at "Install Playwright browsers" with `ERROR packages field missing or empty`.
+- Root-caused it: `pnpm-workspace.yaml`'s `allowBuilds` field was only introduced in pnpm 10.26, but the CI workflow had pinned `pnpm/action-setup` to version 9 (mistakenly inferred from the lockfile's `lockfileVersion: '9.0'`, which is actually a lockfile *format* version compatible with much newer pnpm CLI releases, not the CLI version itself — a real reasoning error worth naming explicitly). pnpm 9 can't parse `allowBuilds` and fails ambiguously rather than with a clear "unknown field" error.
+- Fixed by pinning to pnpm 11, matching what's actually used locally. Verified by watching the corrected run go green end-to-end (`backend`, `web`, and `acceptance` all passed) via `gh run view`, not just by re-reading the YAML.
+- This is a concrete demonstration of why "I can't verify it without pushing" (stated when this pipeline was first built) was accurate — a config bug that passed every local check (YAML parsing, `pnpm install --frozen-lockfile`, the scripts running fine on the developer's own already-provisioned pnpm 11 install) only surfaced once real GitHub Actions infrastructure with a freshly pinned pnpm 9 actually ran it.
+
+Human judgment still required:
+
+- None — CI is green. Same open decision as above: FR-004/FR-006 vs. another Technical-category roadmap item.

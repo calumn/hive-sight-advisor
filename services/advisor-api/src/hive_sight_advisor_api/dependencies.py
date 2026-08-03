@@ -72,6 +72,7 @@ GenerationProviderDep = Annotated[GenerationProvider, Depends(get_generation_pro
 
 
 def get_answer_query_workflow(
+    settings: SettingsDep,
     corpus_repository: CorpusRepositoryDep,
     embedding_provider: EmbeddingProviderDep,
     generation_provider: GenerationProviderDep,
@@ -82,6 +83,8 @@ def get_answer_query_workflow(
         embedding_provider=embedding_provider,
         generation_provider=generation_provider,
         query_repository=query_repository,
+        grounded_distance_threshold=settings.grounded_distance_threshold,
+        partial_distance_threshold=settings.partial_distance_threshold,
     )
 
 

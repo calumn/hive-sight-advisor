@@ -84,6 +84,34 @@ h1 {
   padding: 1.25rem;
 }
 
+.answer-view-partial {
+  border-color: #d9a441;
+  background: #fdf7ea;
+}
+
+.answer-view-ungrounded {
+  border-color: #a4242c;
+  background: #fbeceb;
+}
+
+.answer-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.answer-banner-partial {
+  background: #f6e6c3;
+  color: #6b4f13;
+}
+
+.answer-banner-ungrounded {
+  background: #f3d3d1;
+  color: #7a1f24;
+}
+
 .answer-text {
   white-space: pre-wrap;
   line-height: 1.5;

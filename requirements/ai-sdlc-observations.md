@@ -291,3 +291,20 @@ AI contribution:
 Human judgment still required:
 
 - Approve the slice doc (or adjust) before implementation/TDD begins.
+
+### 2026-08-03 Vertical Slice 0003 Implementation: No-Grounding Behaviour (FR-008)
+
+Human direction: "please do" — implement the slice as scoped and grilled.
+
+AI contribution:
+
+- Backend, TDD throughout: calibrated real thresholds (0.35/0.55) via a handful of live Voyage AI calls against the seeded UK Passage; redesigned `StubEmbeddingProvider` from a meaningless pure-hash scheme to a word-hashing bag-of-words embedding so textual overlap correlates with cosine similarity, with a test proving that property via 3 related/3 unrelated text pairs and a strict max/min ordering assertion (a single-pair version passed by chance against the old broken implementation, so it was redesigned to be a reliable red before going green); added `distance: float` to `CorpusRepository.Passage`; implemented grounded/partial/ungrounded classification in `AnswerQueryWorkflow`, skipping the generation call entirely when ungrounded.
+- UI: `AnswerView` now renders a distinct banner and border colour per grounding state, not just a text label change.
+- Extended the Playwright + Gherkin suite with two new scenarios (partial, ungrounded) using UK-jurisdiction query text.
+- Caught a real regression while doing so: the existing "grounded" Playwright scenarios started failing, because the stub embedding's word-hash distances sit on a completely different scale than the real-Voyage-calibrated thresholds — even a query built almost entirely from the Passage's own vocabulary only reached ~0.43 distance, and the existing scenario's query scored 0.76. Surfaced this to the user with three options before proceeding; user deferred the choice ("do whatever you think best"). Resolved by making the thresholds Settings-driven (env-configurable), with the Playwright config overriding them to stub-calibrated values (0.5/0.8) for its own spawned API process only — production keeps the real calibrated defaults. Logged as its own decision-log entry since it changes how the thresholds are wired, not just their values.
+- Also fixed an unrelated but adjacent bug found while touching `.env.example` for the above: it still documented HiveSight's reserved ports (5173/8000) for `ADVISOR_API_ALLOWED_ORIGINS`/`VITE_ADVISOR_API_URL`, contradicting the explicit port-conflict-avoidance decision from earlier in the project (this project owns 8010/5183). The real, gitignored `.env` already had the correct port — only the example file was stale.
+- Verified: full Python suite (13 passed, 2 skipped, `ruff` clean), Vitest (2 passed), Playwright + Gherkin (5 passed, including the 2 new scenarios), and a live manual pass in the browser against the real Voyage/Claude backend confirming all three grounding states render distinctly (ungrounded and partial both visually confirmed with real API responses; grounded already confirmed in Slices 0001–0002).
+
+Human judgment still required:
+
+- None outstanding for this slice — all acceptance criteria met. Next step is the same open-scope question as before: FR-004 through FR-007 and NFR-003 remain uncovered by any slice.

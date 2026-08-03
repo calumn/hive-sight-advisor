@@ -33,7 +33,12 @@ export default defineConfig({
           "postgresql://hive_sight_advisor:hive_sight_advisor@localhost:5433/hive_sight_advisor_test",
         VOYAGE_API_KEY: "",
         ANTHROPIC_API_KEY: "",
-        ADVISOR_API_ALLOWED_ORIGINS: "http://127.0.0.1:5193"
+        ADVISOR_API_ALLOWED_ORIGINS: "http://127.0.0.1:5193",
+        // The stub embedding provider's word-hash distances sit on a different scale
+        // than real Voyage embeddings, so the acceptance suite needs its own
+        // stub-calibrated thresholds. See requirements/decision-log.md, FR-008.
+        ADVISOR_API_GROUNDED_DISTANCE_THRESHOLD: "0.5",
+        ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD: "0.8"
       },
       reuseExistingServer: false,
       timeout: 30_000,

@@ -22,11 +22,22 @@ class _FakeQueryRepository:
         self.saved = (workspace_id, query_id, query_text, jurisdiction_id, answer)
 
 
+class _SpyGenerationProvider:
+    def __init__(self) -> None:
+        self.call_count = 0
+        self._delegate = StubGenerationProvider()
+
+    def generate_answer(self, query_text, passages):
+        self.call_count += 1
+        return self._delegate.generate_answer(query_text, passages)
+
+
 def test_answer_query_orchestrates_embed_retrieve_generate_and_persist() -> None:
     passage = Passage(
         id=uuid.uuid4(),
         corpus_document_id=uuid.uuid4(),
         text_content="Varroa mites are treated with an oxalic acid vaporization protocol.",
+        distance=0.1,
     )
     corpus_repository = _FakeCorpusRepository([passage])
     query_repository = _FakeQueryRepository()
@@ -58,3 +69,76 @@ def test_answer_query_orchestrates_embed_retrieve_generate_and_persist() -> None
     assert saved_query_text == "How do I treat varroa?"
     assert saved_jurisdiction_id == jurisdiction_id
     assert saved_answer is answer
+
+
+def test_answer_query_is_ungrounded_and_skips_generation_when_nothing_is_close_enough() -> None:
+    far_passage = Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content="Something entirely unrelated to the question.",
+        distance=0.9,
+    )
+    generation_provider = _SpyGenerationProvider()
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([far_passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=generation_provider,
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="What is the capital of France?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "ungrounded"
+    assert answer.citations == []
+    assert generation_provider.call_count == 0
+
+
+def test_answer_query_is_ungrounded_when_no_passage_exists_for_the_jurisdiction() -> None:
+    generation_provider = _SpyGenerationProvider()
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=generation_provider,
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="How do I treat varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "ungrounded"
+    assert answer.citations == []
+    assert generation_provider.call_count == 0
+
+
+def test_answer_query_is_partial_when_the_closest_passage_is_only_somewhat_related() -> None:
+    related_passage = Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content="Adjacent guidance that does not directly answer the question.",
+        distance=0.45,
+    )
+    generation_provider = _SpyGenerationProvider()
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([related_passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=generation_provider,
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="Should I paint my hive a different colour?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "partial"
+    assert len(answer.citations) == 1
+    assert answer.citations[0].passage_id == related_passage.id
+    assert generation_provider.call_count == 1

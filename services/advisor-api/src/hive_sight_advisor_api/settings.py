@@ -9,6 +9,8 @@ class Settings:
     anthropic_api_key: str
     dev_user_header: str = "X-Dev-User-Id"
     allowed_origins: list[str] | None = None
+    grounded_distance_threshold: float = 0.35
+    partial_distance_threshold: float = 0.55
 
 
 def load_settings() -> Settings:
@@ -22,7 +24,13 @@ def load_settings() -> Settings:
         dev_user_header=os.getenv("ADVISOR_API_DEV_USER_HEADER", "X-Dev-User-Id"),
         allowed_origins=_csv_env(
             "ADVISOR_API_ALLOWED_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173",
+            "http://localhost:5183,http://127.0.0.1:5183",
+        ),
+        grounded_distance_threshold=float(
+            os.getenv("ADVISOR_API_GROUNDED_DISTANCE_THRESHOLD", "0.35")
+        ),
+        partial_distance_threshold=float(
+            os.getenv("ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD", "0.55")
         ),
     )
 

@@ -56,6 +56,47 @@ def test_find_similar_passages_returns_the_closest_seeded_passage(postgres_conne
     assert len(results) == 1
     assert results[0].id == close_passage_id
     assert results[0].text_content == "Close passage text"
+    assert results[0].distance < 0.01
+
+
+def test_find_similar_passages_reports_a_large_distance_for_an_unrelated_query(
+    postgres_connection,
+) -> None:
+    jurisdiction_id = uuid.uuid4()
+    corpus_document_id = uuid.uuid4()
+    passage_id = uuid.uuid4()
+
+    passage_embedding = _embedding((0, 1.0))
+    unrelated_query_embedding = _embedding((500, 1.0))
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+            (jurisdiction_id, "uk", "United Kingdom"),
+        )
+        cursor.execute(
+            """
+            INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (corpus_document_id, jurisdiction_id, "Varroa Guide", "APHA BeeBase", "Open Government Licence"),
+        )
+        cursor.execute(
+            """
+            INSERT INTO passages (id, corpus_document_id, text_content, embedding)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (passage_id, corpus_document_id, "Passage text", passage_embedding),
+        )
+    postgres_connection.commit()
+
+    repository = CorpusRepository(postgres_connection)
+    results = repository.find_similar_passages(
+        unrelated_query_embedding, jurisdiction_id=jurisdiction_id, limit=1
+    )
+
+    assert len(results) == 1
+    assert results[0].distance > 0.9
 
 
 def test_find_similar_passages_never_returns_a_different_jurisdictions_passage(

@@ -61,12 +61,18 @@ No new tables or columns. `answers.grounding_status` already exists (Slice 0001'
 
 ## Acceptance Criteria
 
-- [ ] `CorpusRepository.find_similar_passages` returns the similarity distance alongside each Passage.
-- [ ] A Query whose closest Passage exceeds the "too far" threshold returns `grounding_status = ungrounded`, zero Citations, and never calls the generation provider.
-- [ ] A Query whose closest Passage falls between the two thresholds returns `grounding_status = partial`, with a Citation to that Passage and generated text that explicitly signals it may not be a direct answer.
-- [ ] A Query whose closest Passage is within the "close enough" threshold behaves exactly as in Slice 0001/0002 (`grounding_status = grounded`), unchanged.
-- [ ] The web UI visually distinguishes all three grounding states, not only via a text label.
-- [ ] The threshold values are documented in code and in the decision log as provisional, not empirically validated.
+- [x] `CorpusRepository.find_similar_passages` returns the similarity distance alongside each Passage.
+- [x] A Query whose closest Passage exceeds the "too far" threshold returns `grounding_status = ungrounded`, zero Citations, and never calls the generation provider.
+- [x] A Query whose closest Passage falls between the two thresholds returns `grounding_status = partial`, with a Citation to that Passage and generated text that explicitly signals it may not be a direct answer.
+- [x] A Query whose closest Passage is within the "close enough" threshold behaves exactly as in Slice 0001/0002 (`grounding_status = grounded`), unchanged.
+- [x] The web UI visually distinguishes all three grounding states, not only via a text label.
+- [x] The threshold values are documented in code and in the decision log as provisional, not empirically validated.
+
+## Implementation Note: Threshold Values Are Environment-Configurable
+
+Building the Playwright acceptance coverage surfaced a discovery not anticipated when this slice was scoped: the calibrated thresholds (0.35/0.55) were measured against real Voyage AI embeddings, but the acceptance suite runs the stub `EmbeddingProvider` (no live API calls). The stub's crude word-hashing distances sit on a completely different scale — even a query built almost entirely from the seeded Passage's own vocabulary only reaches ~0.43 distance against it, never near 0.35, and a direct paraphrase of the grounded question scored 0.76 (would misclassify as ungrounded). Reusing the same absolute thresholds across both embedding scales isn't possible.
+
+Resolved by making `grounded_distance_threshold`/`partial_distance_threshold` Settings-driven (`ADVISOR_API_GROUNDED_DISTANCE_THRESHOLD` / `ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD` env vars, defaulting to the real-Voyage-calibrated 0.35/0.55). The Playwright config overrides these to stub-calibrated values (0.5/0.8) for its spawned API process only; production and local dev keep the real defaults untouched. See the decision log for the full reasoning.
 
 ## Open Questions
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from uuid import UUID
 
 import psycopg
@@ -8,8 +9,11 @@ from pgvector.psycopg import register_vector
 
 from hive_sight_advisor_api.adapters.embedding_provider import EmbeddingProvider
 from hive_sight_advisor_api.adapters.embedding_voyage import VoyageEmbeddingProvider
+from hive_sight_advisor_api.corpus_admin import apply_curator_documents
 from hive_sight_advisor_api.db import apply_migrations
 from hive_sight_advisor_api.settings import load_settings
+
+CURATOR_ADDED_DOCUMENTS_PATH = Path(__file__).with_name("curator_added_documents.yaml")
 
 DEV_USER_ID = UUID("00000000-0000-0000-0000-000000000101")
 DEV_WORKSPACE_ID = UUID("00000000-0000-0000-0000-000000000201")
@@ -341,6 +345,8 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                     ),
                 )
         connection.commit()
+
+        apply_curator_documents(connection, embedding_provider, CURATOR_ADDED_DOCUMENTS_PATH)
 
     print("Seeded Slice 0001/0002 dev data:")
     print(f"  dev user id:      {DEV_USER_ID}")

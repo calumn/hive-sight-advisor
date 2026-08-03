@@ -183,3 +183,19 @@ A second, distinct point is flagged rather than solved: local deletion is necess
 **Why**: The grounding thresholds are explicitly provisional (see FR-008 Grounding Classification Mechanism), so a Beekeeper disagreeing with an `ungrounded` classification is exactly the kind of evaluation evidence FR-007 exists to capture — excluding that state would silently cut off the most valuable feedback case. Requiring notes costs nothing and directly serves FR-007's framing of a Correction as "evaluation evidence," which an empty flag would barely qualify as. The domain model's `Correction` entity has no uniqueness constraint on `answer_id`, so allowing repeats avoids inventing a restriction the model doesn't ask for, and preserves a Beekeeper's ability to add detail later or a second person to flag independently. A reason taxonomy would add UI complexity and a schema field with no current reporting or consumption need — nothing yet reads or aggregates Corrections, so categorizing them now would be speculative.
 
 **Resolved via**: grilling session with Claude, four questions in sequence, during vertical slice planning for Slice 0005.
+
+## 2026-08-03 Corpus Curator CLI Tooling And AI-Assisted Review
+
+**Decision**: Seven resolutions, covering both the AI-assisted review step (raised by the user mid-scoping) and the CLI tool's own shape:
+
+1. The review step checks topic/jurisdiction relevance and potential overlap or contradiction with existing corpus content — not factual/scientific accuracy of treatment claims.
+2. The review is advisory only, never a blocking gate; the Curator's confirmation is what decides whether a document is added.
+3. The review compares the candidate document against the nearest existing Passages in the same Jurisdiction (via the existing `CorpusRepository`), not just the candidate in isolation.
+4. This is a local CLI script with direct database/API-key access, not new HTTP admin endpoints.
+5. The tool persists what it adds/retires to a source-controlled data file, not the live database alone, so the corpus stays fully reproducible from a fresh clone.
+6. That file is a separate structured YAML file the seed script loads, not an appended/rewritten Python dataclass in `seed_slice_0001.py`.
+7. V1 covers add and retire only; updating an existing document or marking supersession via the tool are deferred, still reachable the existing way.
+
+**Why**: The review step's scope (1–3) keeps the tool in its lane — an LLM judging specialized apiculture/veterinary accuracy would be a false authority, but relevance-and-overlap-against-what's-already-there is a concrete, checkable signal, and reuses retrieval infrastructure that already exists. Advisory-only matches the same reasoning as Correction Trust Level For V1: one real curator, who is also the domain expert, makes a hard gate just self-review with extra steps. A CLI script (4) avoids inventing a corpus-admin access-control model that doesn't otherwise exist — the dev-header only identifies a user for workspace-membership checks, nothing about corpus-mutation permission. Persisting to source control (5–6) protects a property this project has treated as non-negotiable everywhere else (checked-in migrations, a rerunnable seed script) — quietly losing it for curator-added content would be a real regression; a separate YAML file avoids the fragility of a CLI tool programmatically rewriting Python source. Scoping to add/retire only (7) matches exactly what was asked for; update and mark-superseded are smaller mechanical extensions better built once this tool's shape has proven itself.
+
+**Resolved via**: grilling session with Claude, seven questions in sequence (three raised by the user mid-scoping about the review step, four about the tool's own shape), during vertical slice planning for Slice 0006.

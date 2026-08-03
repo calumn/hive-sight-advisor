@@ -64,7 +64,7 @@ Per the V1 Scope Boundary decision, none of this begins until Phase 1's groundin
 
 ### Corpus management tooling
 
-- **Internal Corpus Curator tooling.** Today, adding, retiring, or updating a Corpus Document means hand-editing Python dataclasses in `scripts/seed_slice_0001.py` and re-running the seed script — deliberate, per the existing "manual, Corpus Curator-triggered" ingestion decision, since the corpus is small and there's one real curator. A lightweight CLI (or small admin script) that wraps the same repository calls would remove the need to touch Python/dataclass code for a routine content update, without needing a full web admin UI or any trust/moderation model — this stays an internal, already-trusted operator, distinct from the end-user suggestion item above.
+- ~~**Internal Corpus Curator tooling.**~~ **Done** — see `architecture/vertical-slice-0006-corpus-curator-cli-tooling.md`. `python -m hive_sight_advisor_api.corpus_admin add-document`/`retire-document` replace hand-editing `seed_slice_0001.py`'s dataclasses for those two operations, with an AI-assisted (advisory-only) review step. Updating an existing document's text/metadata and marking supersession via the tool remain deferred, per that slice's scoped-out v1 boundary — still done by hand-editing the dataclasses.
 
 ### Housekeeping
 

@@ -435,3 +435,37 @@ AI contribution:
 Human judgment still required:
 
 - Neither item is scoped yet — both are roadmap candidates only. Decide which (if either) to pick up next, or continue with FR-004/FR-006.
+
+### 2026-08-03 Vertical Slice 0006 Scoping: Corpus Curator CLI Tooling With AI-Assisted Review
+
+Human direction: "The internal corpus management one looks an interesting one to start with." Mid-scoping, before hearing the drafted questions, the user raised a genuinely good addition: since they lack domain expertise to judge what makes a good corpus document, could the system itself review a candidate document and give guidance before it's added.
+
+AI contribution:
+
+- Recognized the review idea connects directly to an existing decision (Source Supersession And Conflict Detection: manual, Curator-led judgement at ingestion time) rather than treating it as an unrelated new feature — framed it as assisting that existing manual judgement, not automating past it.
+- Folded the review idea into the same grilling session as the tool's own design, asking about it first since the user raised it first: what the review checks (relevance/overlap, not factual accuracy — an LLM shouldn't be a false authority on specialized veterinary/apiculture facts), whether it's advisory or blocking (advisory only, same reasoning as Correction Trust Level For V1), and whether it compares against existing corpus content (yes, reusing existing retrieval infrastructure — also real groundwork toward FR-006, which had no source material to work with as of the last corpus-growth pass).
+- Then returned to the four originally-planned questions about the tool's own shape: CLI script over HTTP admin endpoints (avoids an access-control model that doesn't exist), persisting additions to a source-controlled file rather than the live database alone (protects the reproducibility property every other part of this project already has), a separate YAML file over rewriting Python source (avoids fragile programmatic source-code editing), and add/retire-only v1 scope (matches exactly what was asked for).
+- Wrote `architecture/vertical-slice-0006-corpus-curator-cli-tooling.md` and logged one combined decision-log entry covering all seven resolutions.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation/TDD begins.
+
+### 2026-08-03 Vertical Slice 0006 Implementation: Corpus Curator CLI Tooling With AI-Assisted Review
+
+Human direction: "Go for it" — implement the slice as scoped and grilled.
+
+AI contribution:
+
+- Refined one placement decision beyond what was grilled (not itself a product question): put the CLI's core logic inside the installed package (`hive_sight_advisor_api/corpus_admin.py`) rather than `scripts/`, matching `db.py`'s existing precedent for argparse-based operational tooling and making it importable by pytest with no path workarounds — `scripts/` stays reserved for data/seeding scripts (`seed_slice_0001.py`) and the data file itself.
+- TDD throughout: `CorpusReviewProvider` protocol + `StubCorpusReviewProvider` + `ClaudeCorpusReviewProvider` (mirroring the existing `EmbeddingProvider`/`GenerationProvider` two-adapter pattern); `corpus_admin.py`'s `prepare_candidate`/`commit_candidate`/`retire_document`/`apply_curator_documents` written as plain testable functions against a real Postgres test database, with the interactive/argparse concerns kept in a thin `main()` wrapper.
+- Extended `seed_slice_0001.py` to load and apply `scripts/curator_added_documents.yaml` after seeding its existing hardcoded documents, so retiring a document works identically whether it originated from the Python baseline or a prior CLI addition.
+- Verified: full Python suite (38 passed, 3 skipped, `ruff` clean — the 3 skips are the pre-existing live-provider contract tests, correctly including the new Claude review contract test), Playwright/Gherkin (9/9, no regressions from the empty data file being wired in).
+- Ran the real tool against the live dev database to prove it end-to-end, adding a genuine new US document (Formic Pro, formic acid, EPA-registered) researched the same way as the earlier UK corpus-growth pass. The AI review caught something genuinely useful unprompted: it flagged that the candidate's "supers don't need to be removed" claim sits in tension with the existing US passage's blanket "follow the label for honey super restrictions" framing — not a contradiction, but worth a curator's eye — while explicitly declining to judge the temperature range, dosing regimen, or organic-certification claims, deferring those to the curator as out of its remit. This is exactly the advisory shape that was designed.
+- Verified reproducibility directly, not just by inspection: ran a full `reset-test` (drop schema, reapply migrations) and re-seed, then confirmed via direct SQL query that the curator-added Formic Pro document reproduced correctly — the property this whole design (source-controlled YAML over live-database-only) exists to protect.
+
+Human judgment still required:
+
+- None outstanding for this slice — all acceptance criteria met.
+- `curator_added_documents.yaml` now has one real, live-verified entry (Formic Pro) rather than being an empty template — this is genuine corpus content, not test fixture data, and should be treated the same as the other UK/US treatment documents added earlier.
+- Update/mark-superseded via the CLI tool remain deferred, per the grilled v1 scope — still done by hand-editing `seed_slice_0001.py`'s dataclasses.

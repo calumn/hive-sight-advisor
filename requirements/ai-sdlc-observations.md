@@ -535,3 +535,20 @@ Human judgment still required:
 
 - Decide how to handle the threshold drift: recalibrate 0.35/0.55 against a larger real query set, or accept that some example queries won't cleanly demonstrate their original grounding tier forever as the corpus keeps growing, and choose new example queries per scenario instead.
 - The live pass itself is genuinely useful going forward — consider running it after any future corpus-growth or threshold-related change, not just once.
+
+### 2026-08-03 Independent Code Review (Own Pass + Codex), Two Defects Fixed
+
+Human direction: asked for a code review scored on five attributes, "in the same vein" as a review Claude had done on the sibling HiveSight project. Separately, the user had also asked Codex (via ChatGPT) to review this same codebase and shared its findings back for comparison.
+
+AI contribution:
+
+- Ran an independent five-attribute review (Architecture & Design, Security, Test Coverage & Quality, Code Quality & Maintainability, Correctness & Robustness), using a fresh Explore-agent investigation rather than relying on memory of having built the code, since reviewing one's own work carries an inherent bias risk. Verified the two most consequential claims (dead `ADVISOR_API_DEV_USER_HEADER` config, `corpus_admin.py`'s commit-before-yaml-write ordering) directly before including them.
+- When the user shared Codex's independent review, verified all five of its findings directly against the actual code rather than accepting them at face value — all five held up. Two were things this review's own pass had missed entirely: retired documents remain fully retrievable (`corpus_repository.py:48` only filters by jurisdiction, no status check), and generated citation ids are trusted via a bare dict lookup (`answer_query.py`, now fixed) with no validation against what was actually retrieved.
+- Went a level deeper on the retired-document finding than Codex's own writeup: connected it to Slice 0004's `is_superseded` flag, which checks specifically `document_status == "superseded"` — meaning a `retired` document (exactly what Slice 0006's `retire-document` CLI command produces) renders with *zero* warning, not just "no exclusion." It looks more trustworthy than a superseded document, not less. This was the more actionable finding of the two.
+- Fixed both via TDD, deliberately narrow and consistent with prior decisions rather than reopening settled ground: excluded `retired` from retrieval entirely (`corpus_repository.py`, new `AND corpus_documents.status != 'retired'` clause) while leaving `superseded` handling exactly as Slice 0004 decided (retrieve + flag, not exclude) — a real distinction, since `retired` has no named successor to point to the way `superseded` does. Filtered `cited_passage_ids` down to ones present in the retrieved set (`answer_query.py`) rather than adding a new grounding-status branch — the existing "no citations → ungrounded" logic already does the right thing once invalid ids are filtered out first.
+- Verified: full Python suite (43 passed, 4 skipped, `ruff` clean) and full Playwright/Gherkin suite (10/10) both green after both fixes, with no regressions to the existing superseded-document behavior.
+
+Human judgment still required:
+
+- Codex's other three findings (generation-version persistence gap, no pgvector ANN index, dev-auth risk) were confirmed accurate but correctly scored as debt/deferred, not "fix now" — no action taken on those yet.
+- This review's own additional findings (5x duplicated upsert SQL, no CI type-checking/ESLint, zero retry/timeout on external API adapters, `corpus_admin.py`'s transaction-ordering gaps) remain unaddressed — not yet triaged into the roadmap.

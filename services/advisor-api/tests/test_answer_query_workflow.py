@@ -1,6 +1,7 @@
 import uuid
 
 from hive_sight_advisor_api.adapters.embedding_stub import StubEmbeddingProvider
+from hive_sight_advisor_api.adapters.generation_provider import GeneratedAnswer
 from hive_sight_advisor_api.adapters.generation_stub import StubGenerationProvider
 from hive_sight_advisor_api.repositories.corpus_repository import Passage
 from hive_sight_advisor_api.workflows.answer_query import AnswerQueryWorkflow
@@ -37,6 +38,14 @@ class _FakeQueryRepository:
 
     def save(self, workspace_id, query_id, query_text, jurisdiction_id, answer):
         self.saved = (workspace_id, query_id, query_text, jurisdiction_id, answer)
+
+
+class _FakeGenerationProvider:
+    def __init__(self, cited_passage_ids: list[uuid.UUID]) -> None:
+        self._cited_passage_ids = cited_passage_ids
+
+    def generate_answer(self, query_text, passages):
+        return GeneratedAnswer(text="A generated answer.", cited_passage_ids=self._cited_passage_ids)
 
 
 class _SpyGenerationProvider:
@@ -256,3 +265,43 @@ def test_answer_query_grounding_status_still_reflects_only_the_closest_passage()
     )
 
     assert answer.grounding_status == "partial"
+
+
+def test_answer_query_drops_a_cited_passage_id_that_was_not_retrieved() -> None:
+    passage = _passage(text_content="Oxalic acid guidance.", distance=0.1)
+    hallucinated_id = uuid.uuid4()
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=_FakeGenerationProvider(cited_passage_ids=[passage.id, hallucinated_id]),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="How do I treat varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "grounded"
+    assert [citation.passage_id for citation in answer.citations] == [passage.id]
+
+
+def test_answer_query_is_ungrounded_when_every_cited_passage_id_was_not_retrieved() -> None:
+    passage = _passage(text_content="Oxalic acid guidance.", distance=0.1)
+    hallucinated_id = uuid.uuid4()
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=_FakeGenerationProvider(cited_passage_ids=[hallucinated_id]),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="How do I treat varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "ungrounded"
+    assert answer.citations == []

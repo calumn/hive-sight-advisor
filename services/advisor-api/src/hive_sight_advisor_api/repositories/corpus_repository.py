@@ -46,6 +46,7 @@ class CorpusRepository:
                 LEFT JOIN corpus_documents AS superseding_document
                     ON superseding_document.id = corpus_documents.superseded_by_corpus_document_id
                 WHERE corpus_documents.jurisdiction_id = %s
+                    AND corpus_documents.status != 'retired'
                 ORDER BY distance
                 LIMIT %s
                 """,

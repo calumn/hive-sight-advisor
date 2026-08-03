@@ -264,3 +264,53 @@ def test_find_similar_passages_flags_a_superseded_documents_passage(postgres_con
     assert passage.id == passage_id
     assert passage.document_status == "superseded"
     assert passage.superseded_by_document_title == "Managing Varroa (2024 edition)"
+
+
+def test_find_similar_passages_never_returns_a_retired_documents_passage(postgres_connection) -> None:
+    jurisdiction_id = uuid.uuid4()
+    retired_document_id = uuid.uuid4()
+    active_document_id = uuid.uuid4()
+    retired_passage_id = uuid.uuid4()
+    active_passage_id = uuid.uuid4()
+
+    # The retired passage is the closer match; if retirement isn't respected, it would be
+    # returned as the closest result instead of the more distant active one.
+    retired_embedding = _embedding((0, 1.0))
+    active_embedding = _embedding((0, 0.6), (1, 0.4))
+    query_embedding = _embedding((0, 1.0))
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+            (jurisdiction_id, "uk", "United Kingdom"),
+        )
+        cursor.execute(
+            """
+            INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms, status)
+            VALUES (%s, %s, %s, %s, %s, 'retired')
+            """,
+            (retired_document_id, jurisdiction_id, "Withdrawn Guide", "APHA BeeBase", "Open Government Licence"),
+        )
+        cursor.execute(
+            """
+            INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (active_document_id, jurisdiction_id, "Current Guide", "APHA BeeBase", "Open Government Licence"),
+        )
+        cursor.execute(
+            "INSERT INTO passages (id, corpus_document_id, text_content, embedding) VALUES (%s, %s, %s, %s)",
+            (retired_passage_id, retired_document_id, "Withdrawn passage text", retired_embedding),
+        )
+        cursor.execute(
+            "INSERT INTO passages (id, corpus_document_id, text_content, embedding) VALUES (%s, %s, %s, %s)",
+            (active_passage_id, active_document_id, "Current passage text", active_embedding),
+        )
+    postgres_connection.commit()
+
+    repository = CorpusRepository(postgres_connection)
+    results = repository.find_similar_passages(
+        query_embedding, jurisdiction_id=jurisdiction_id, limit=5
+    )
+
+    assert [passage.id for passage in results] == [active_passage_id]

@@ -99,6 +99,10 @@ class AnswerQueryWorkflow:
             generated = self._generation_provider.generate_answer(query_text, passages)
             answer_id = uuid4()
             passages_by_id = {passage.id: passage for passage in passages}
+            # A generation provider (especially an LLM) may return a passage id that wasn't
+            # actually among the retrieved passages — a hallucinated or malformed id. Only build
+            # a Citation for ids we can trace back to something we actually retrieved; silently
+            # dropping the rest is safer than crashing or fabricating provenance for them.
             citations = [
                 Citation(
                     id=uuid4(),
@@ -114,6 +118,7 @@ class AnswerQueryWorkflow:
                     ].superseded_by_document_title,
                 )
                 for passage_id in generated.cited_passage_ids
+                if passage_id in passages_by_id
             ]
             if not citations:
                 grounding_status = "ungrounded"

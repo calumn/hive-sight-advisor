@@ -148,3 +148,85 @@ h1 {
   color: #6b4f13;
   font-weight: 600;
 }
+
+.answer-correction {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e4dccb;
+}
+
+.answer-correction > button {
+  background: none;
+  border: 1px solid #a4242c;
+  color: #a4242c;
+  border-radius: 8px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.correction-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.correction-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a4033;
+}
+
+.correction-form textarea {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #d8cdb6;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.correction-form button {
+  align-self: flex-start;
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #a4242c;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.correction-form button:disabled {
+  background: #d8b3b5;
+  cursor: not-allowed;
+}
+
+.correction-error {
+  color: #a4242c;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.correction-ack {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: #4a4033;
+}
+
+.correction-ack p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.correction-ack button {
+  background: none;
+  border: 1px solid #b5651d;
+  color: #b5651d;
+  border-radius: 8px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}

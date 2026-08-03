@@ -39,7 +39,9 @@ export function App() {
       <p className="tagline">Ask a beekeeping question and get a grounded answer with a citation.</p>
       <QueryForm onSubmit={handleSubmit} disabled={state.status === "loading"} />
       {state.status === "error" && <p className="error">{state.message}</p>}
-      {state.status === "ready" && <AnswerView answer={state.answer} />}
+      {state.status === "ready" && (
+        <AnswerView answer={state.answer} devUserId={DEV_USER_ID} workspaceId={DEV_WORKSPACE_ID} />
+      )}
     </main>
   );
 }

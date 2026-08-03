@@ -16,6 +16,12 @@ export type Answer = {
   citations: Citation[];
 };
 
+export type Correction = {
+  id: string;
+  answerId: string;
+  status: string;
+};
+
 const advisorApiUrl = import.meta.env.VITE_ADVISOR_API_URL ?? "http://localhost:8000";
 
 export async function submitQuery({
@@ -44,6 +50,43 @@ export async function submitQuery({
 
   await ensureOk(response);
   return parseAnswer(await response.json());
+}
+
+export async function submitCorrection({
+  devUserId,
+  workspaceId,
+  answerId,
+  notes
+}: {
+  devUserId: string;
+  workspaceId: string;
+  answerId: string;
+  notes: string;
+}): Promise<Correction> {
+  const response = await fetch(`${advisorApiUrl}/corrections`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-dev-user-id": devUserId
+    },
+    body: JSON.stringify({
+      workspace_id: workspaceId,
+      answer_id: answerId,
+      notes
+    })
+  });
+
+  await ensureOk(response);
+  return parseCorrection(await response.json());
+}
+
+function parseCorrection(value: unknown): Correction {
+  const record = requireRecord(value, "Advisor API correction response");
+  return {
+    id: requireString(record.id, "id"),
+    answerId: requireString(record.answer_id, "answer_id"),
+    status: requireString(record.status, "status")
+  };
 }
 
 async function ensureOk(response: Response): Promise<void> {

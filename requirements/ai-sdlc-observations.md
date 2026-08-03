@@ -340,3 +340,33 @@ AI contribution:
 Human judgment still required:
 
 - None outstanding for this slice — all acceptance criteria met. FR-004, FR-006, and FR-007 remain the only uncovered functional requirements.
+
+### 2026-08-03 Vertical Slice 0005 Scoping: User Corrections (FR-007)
+
+Human direction: "on with the next" after Slice 0004. Recommended FR-007 (user corrections) over FR-006 (source conflict detection, needs multi-passage retrieval plus a mechanism to record which documents conflict) and FR-004 (treatment trade-off comparison, needs a richer corpus) — FR-007 is the most self-contained: a new write path against an entity the domain model already fully specifies, with no retrieval-algorithm changes needed. User agreed.
+
+AI contribution:
+
+- Noted the trust-level question (no review gate, straight to `trusted`) was already resolved in an earlier grilling round (Correction Trust Level For V1) — did not re-litigate it, only grilled the mechanical/UX questions this slice actually introduces.
+- Drafted a mechanism surfacing four open questions, then ran the same one-question-at-a-time grilling pattern as Slices 0003–0004.
+- Key resolutions: the flag control is available on every Answer including `ungrounded` (the grounding thresholds are provisional, so disagreement with an ungrounded classification is itself valuable evidence); notes are required, not optional; repeat Corrections on the same Answer are allowed, not one-shot; no reason taxonomy for v1, free-text only.
+- Wrote `architecture/vertical-slice-0005-user-corrections.md` and logged one combined decision-log entry covering all four resolutions.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation/TDD begins.
+
+### 2026-08-03 Vertical Slice 0005 Implementation: User Corrections (FR-007)
+
+Human direction: "go for it" — implement the slice as scoped and grilled.
+
+AI contribution:
+
+- TDD throughout: new `corrections` migration; `CorrectionRepository` (`save`, `answer_belongs_to_workspace`, the latter validating an Answer's parent Query belongs to the claimed Workspace before allowing a Correction against it); new `POST /corrections` endpoint reusing the existing `has_active_membership` check from `QueryRepository` rather than duplicating it, with Pydantic's `Field(min_length=1)` enforcing required notes as a free built-in 422 rather than custom validation code.
+- UI: `AnswerView` gained a self-contained "Flag as wrong" control (button → notes form → submit → acknowledgment → "Flag again"), managing its own local state and calling the API client directly, since App.tsx has no reason to react to a Correction's outcome — kept the page-level state machine untouched.
+- Extended the Playwright + Gherkin suite with 2 new scenarios covering both a grounded and an ungrounded Answer being flagged, proving the control and full round-trip work regardless of grounding status per the grilled decision.
+- Verified: full Python suite (27 passed, 2 skipped, `ruff` clean), Vitest (4 passed), `tsc --noEmit` clean, Playwright + Gherkin (9 passed, including the 2 new scenarios), a live manual pass in the browser against the real backend, and a direct database check confirming the Correction row persisted with `status = 'trusted'` and the submitted notes intact.
+
+Human judgment still required:
+
+- None outstanding for this slice — all acceptance criteria met. FR-004 and FR-006 remain the only uncovered functional requirements.

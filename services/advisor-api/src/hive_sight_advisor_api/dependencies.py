@@ -15,6 +15,7 @@ from hive_sight_advisor_api.adapters.generation_claude import ClaudeGenerationPr
 from hive_sight_advisor_api.adapters.generation_provider import GenerationProvider
 from hive_sight_advisor_api.adapters.generation_stub import StubGenerationProvider
 from hive_sight_advisor_api.repositories.corpus_repository import CorpusRepository
+from hive_sight_advisor_api.repositories.correction_repository import CorrectionRepository
 from hive_sight_advisor_api.repositories.query_repository import PostgresQueryRepository
 from hive_sight_advisor_api.settings import Settings, load_settings
 from hive_sight_advisor_api.workflows.answer_query import AnswerQueryWorkflow
@@ -51,6 +52,13 @@ def get_query_repository(connection: DbConnectionDep) -> PostgresQueryRepository
 
 
 QueryRepositoryDep = Annotated[PostgresQueryRepository, Depends(get_query_repository)]
+
+
+def get_correction_repository(connection: DbConnectionDep) -> CorrectionRepository:
+    return CorrectionRepository(connection)
+
+
+CorrectionRepositoryDep = Annotated[CorrectionRepository, Depends(get_correction_repository)]
 
 
 def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:

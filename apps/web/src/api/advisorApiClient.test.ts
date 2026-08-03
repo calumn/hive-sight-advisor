@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { submitQuery } from "./advisorApiClient";
+import { submitCorrection, submitQuery } from "./advisorApiClient";
 
 describe("submitQuery", () => {
   afterEach(() => {
@@ -89,5 +89,64 @@ describe("submitQuery", () => {
         text: "How do I treat varroa?"
       })
     ).rejects.toThrow("No active Workspace Membership.");
+  });
+});
+
+describe("submitCorrection", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the request with dev-auth headers and the correct body, and parses the response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: "correction-1", answer_id: "answer-1", status: "trusted" }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const correction = await submitCorrection({
+      devUserId: "user-1",
+      workspaceId: "workspace-1",
+      answerId: "answer-1",
+      notes: "This cites the wrong jurisdiction's guidance."
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/corrections$/);
+    expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({
+      "content-type": "application/json",
+      "x-dev-user-id": "user-1"
+    });
+    expect(JSON.parse(init.body)).toEqual({
+      workspace_id: "workspace-1",
+      answer_id: "answer-1",
+      notes: "This cites the wrong jurisdiction's guidance."
+    });
+
+    expect(correction).toEqual({ id: "correction-1", answerId: "answer-1", status: "trusted" });
+  });
+
+  it("throws the server's detail message when the request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: "Answer not found in this Workspace." }), {
+          status: 404
+        })
+      )
+    );
+
+    await expect(
+      submitCorrection({
+        devUserId: "user-1",
+        workspaceId: "workspace-1",
+        answerId: "answer-1",
+        notes: "Something is wrong."
+      })
+    ).rejects.toThrow("Answer not found in this Workspace.");
   });
 });

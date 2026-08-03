@@ -1,10 +1,48 @@
-import type { Answer } from "../api/advisorApiClient";
+import { type FormEvent, useState } from "react";
+import { submitCorrection, type Answer } from "../api/advisorApiClient";
 
 export type AnswerViewProps = {
   answer: Answer;
+  devUserId: string;
+  workspaceId: string;
 };
 
-export function AnswerView({ answer }: AnswerViewProps) {
+export function AnswerView({ answer, devUserId, workspaceId }: AnswerViewProps) {
+  const [isFlagFormOpen, setIsFlagFormOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [submissionState, setSubmissionState] = useState<
+    "idle" | "submitting" | "submitted" | "error"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleSubmitCorrection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedNotes = notes.trim();
+    if (trimmedNotes.length === 0) {
+      return;
+    }
+    setSubmissionState("submitting");
+    try {
+      await submitCorrection({
+        devUserId,
+        workspaceId,
+        answerId: answer.id,
+        notes: trimmedNotes
+      });
+      setSubmissionState("submitted");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong.");
+      setSubmissionState("error");
+    }
+  }
+
+  function handleFlagAgain() {
+    setNotes("");
+    setSubmissionState("idle");
+    setErrorMessage(null);
+    setIsFlagFormOpen(true);
+  }
+
   return (
     <section className={`answer-view answer-view-${answer.groundingStatus}`}>
       {answer.groundingStatus === "ungrounded" && (
@@ -47,6 +85,39 @@ export function AnswerView({ answer }: AnswerViewProps) {
           ))}
         </ul>
       )}
+
+      <div className="answer-correction">
+        {submissionState === "submitted" ? (
+          <div className="correction-ack">
+            <p>Thanks — recorded.</p>
+            <button type="button" onClick={handleFlagAgain}>
+              Flag again
+            </button>
+          </div>
+        ) : isFlagFormOpen ? (
+          <form onSubmit={handleSubmitCorrection} className="correction-form">
+            <label htmlFor="correction-notes">What&apos;s wrong with this answer?</label>
+            <textarea
+              id="correction-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              disabled={submissionState === "submitting"}
+              rows={2}
+            />
+            <button
+              type="submit"
+              disabled={submissionState === "submitting" || notes.trim().length === 0}
+            >
+              {submissionState === "submitting" ? "Submitting..." : "Submit"}
+            </button>
+            {submissionState === "error" && <p className="correction-error">{errorMessage}</p>}
+          </form>
+        ) : (
+          <button type="button" onClick={() => setIsFlagFormOpen(true)}>
+            Flag as wrong
+          </button>
+        )}
+      </div>
     </section>
   );
 }

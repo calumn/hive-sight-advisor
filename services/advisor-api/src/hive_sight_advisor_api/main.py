@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from hive_sight_advisor_api.routers import query
+from hive_sight_advisor_api.routers import correction, query
 from hive_sight_advisor_api.settings import load_settings
 
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
         return {"service": "advisor-api", "status": "ok"}
 
     app.include_router(query.router)
+    app.include_router(correction.router)
 
     return app
 

@@ -170,3 +170,16 @@ A second, distinct point is flagged rather than solved: local deletion is necess
 **Why**: FR-005's own wording — "flag when a source it would otherwise cite has been superseded... rather than citing it as current" — only makes sense if citing it is still what happens, just not silently as current; excluding it from retrieval entirely would make the flagging behaviour unobservable and answer an easier requirement than the one written. Chasing the successor's content adds real complexity (it must cover the same topic at a similar passage granularity, which isn't guaranteed) for a case FR-005 doesn't actually ask for. Keeping the superseded flag off `grounding_status` avoids conflating two independent dimensions that the existing invariant (grounded/partial ⇒ ≥1 citation, ungrounded ⇒ 0) doesn't need to know about. NFR-003 has real licence-compliance weight (e.g. HBHC's CC BY-NC-ND terms require attribution whenever that content is shown, not just when it's outdated), so it applies unconditionally. `created_at` vs. a dedicated retrieved-date column, and `source_url`, were judged on different cost/value terms even though both are schema gaps versus the domain model: the date field would only earn its keep once a document can be updated in place without a status change (a case v1 doesn't have), while `source_url` is cheap and materially strengthens NFR-003's real intent — giving a Beekeeper somewhere to actually go to verify or attribute a licensed source.
 
 **Resolved via**: grilling session with Claude, six questions in sequence, during vertical slice planning for Slice 0004.
+
+## 2026-08-03 User Corrections Mechanism
+
+**Decision**: Four resolutions, covering FR-007's mechanism (the trust-level question was already resolved separately — see Correction Trust Level For V1):
+
+1. The "flag as wrong" control is available on every Answer regardless of `grounding_status`, including `ungrounded` — not restricted to grounded/partial answers.
+2. Notes are required (non-empty); an unexplained flag cannot be submitted.
+3. Multiple Corrections may be submitted for the same Answer — it is not a one-shot action, and the UI does not hide or disable the control after first use.
+4. No structured "reason" taxonomy is added alongside notes for v1 — free-text only.
+
+**Why**: The grounding thresholds are explicitly provisional (see FR-008 Grounding Classification Mechanism), so a Beekeeper disagreeing with an `ungrounded` classification is exactly the kind of evaluation evidence FR-007 exists to capture — excluding that state would silently cut off the most valuable feedback case. Requiring notes costs nothing and directly serves FR-007's framing of a Correction as "evaluation evidence," which an empty flag would barely qualify as. The domain model's `Correction` entity has no uniqueness constraint on `answer_id`, so allowing repeats avoids inventing a restriction the model doesn't ask for, and preserves a Beekeeper's ability to add detail later or a second person to flag independently. A reason taxonomy would add UI complexity and a schema field with no current reporting or consumption need — nothing yet reads or aggregates Corrections, so categorizing them now would be speculative.
+
+**Resolved via**: grilling session with Claude, four questions in sequence, during vertical slice planning for Slice 0005.

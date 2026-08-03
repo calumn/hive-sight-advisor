@@ -30,3 +30,54 @@ def test_claude_generation_grounds_answer_in_the_passage_and_cites_it() -> None:
 
     assert "oxalic acid" in result.text.lower()
     assert result.cited_passage_ids == [passage.id]
+
+
+@pytest.mark.skipif(
+    not os.getenv("ANTHROPIC_API_KEY"),
+    reason="Set ANTHROPIC_API_KEY to run the live Claude generation contract test.",
+)
+def test_claude_generation_compares_genuinely_different_treatment_options() -> None:
+    provider = ClaudeGenerationProvider(api_key=os.environ["ANTHROPIC_API_KEY"])
+    amitraz_passage = Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content=(
+            "Apivar is a UK-authorised Varroa treatment using amitraz-impregnated strips. "
+            "It has no temperature restriction and can be used at any time of year. Amitraz "
+            "is a synthetic acaricide and is not compatible with organic certification "
+            "standards."
+        ),
+        distance=0.2,
+        document_title="Apivar (Amitraz) Varroa Treatment",
+        document_source="Thorne (Beehives) Ltd",
+        document_source_url="https://www.thorne.co.uk/",
+        document_licence_terms="All rights reserved (retailer product literature)",
+        document_status="active",
+        superseded_by_document_title=None,
+    )
+    thymol_passage = Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content=(
+            "Apiguard is a UK-authorised Varroa treatment based on thymol. It works best "
+            "when daytime temperatures reach at least fifteen degrees Celsius. Because "
+            "thymol is plant-derived, Apiguard is compatible with organic certification "
+            "standards."
+        ),
+        distance=0.2,
+        document_title="Apiguard (Thymol) Varroa Treatment",
+        document_source="Vita Bee Health",
+        document_source_url="https://www.vita-europe.com/",
+        document_licence_terms="All rights reserved (manufacturer product literature)",
+        document_status="active",
+        superseded_by_document_title=None,
+    )
+
+    result = provider.generate_answer(
+        "What are my options for treating varroa, and how do they compare?",
+        [amitraz_passage, thymol_passage],
+    )
+
+    assert "apivar" in result.text.lower() or "amitraz" in result.text.lower()
+    assert "apiguard" in result.text.lower() or "thymol" in result.text.lower()
+    assert set(result.cited_passage_ids) == {amitraz_passage.id, thymol_passage.id}

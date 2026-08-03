@@ -24,8 +24,10 @@ def _passage(*, text_content: str, distance: float) -> Passage:
 class _FakeCorpusRepository:
     def __init__(self, passages: list[Passage]) -> None:
         self._passages = passages
+        self.requested_limits: list[int] = []
 
     def find_similar_passages(self, query_embedding, jurisdiction_id, limit=1):
+        self.requested_limits.append(limit)
         return self._passages[:limit]
 
 
@@ -212,3 +214,45 @@ def test_answer_query_flags_a_citation_from_a_superseded_source() -> None:
     citation = answer.citations[0]
     assert citation.is_superseded is True
     assert citation.superseded_by_document_title == "Managing Varroa (2024 edition)"
+
+
+def test_answer_query_retrieves_up_to_five_passages_for_comparison() -> None:
+    closest = _passage(text_content="Oxalic acid guidance.", distance=0.1)
+    second = _passage(text_content="Amitraz strip guidance.", distance=0.15)
+    corpus_repository = _FakeCorpusRepository([closest, second])
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=corpus_repository,
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=StubGenerationProvider(),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="What are my options for treating varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert corpus_repository.requested_limits == [5]
+    assert answer.grounding_status == "grounded"
+    assert {citation.passage_id for citation in answer.citations} == {closest.id, second.id}
+
+
+def test_answer_query_grounding_status_still_reflects_only_the_closest_passage() -> None:
+    closest = _passage(text_content="Adjacent guidance, only partially related.", distance=0.45)
+    second = _passage(text_content="A much closer match, but not the nearest.", distance=0.1)
+    corpus_repository = _FakeCorpusRepository([closest, second])
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=corpus_repository,
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=StubGenerationProvider(),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="What are my options for treating varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "partial"

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:acceptance": "bddgen && playwright test",
-    "test:acceptance:headed": "bddgen && playwright test --headed"
+    "test:acceptance:headed": "bddgen && playwright test --headed",
+    "test:acceptance:live": "bddgen && playwright test --config=playwright.live.config.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

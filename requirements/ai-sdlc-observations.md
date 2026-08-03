@@ -469,3 +469,69 @@ Human judgment still required:
 - None outstanding for this slice — all acceptance criteria met.
 - `curator_added_documents.yaml` now has one real, live-verified entry (Formic Pro) rather than being an empty template — this is genuine corpus content, not test fixture data, and should be treated the same as the other UK/US treatment documents added earlier.
 - Update/mark-superseded via the CLI tool remain deferred, per the grilled v1 scope — still done by hand-editing `seed_slice_0001.py`'s dataclasses.
+
+### 2026-08-03 Vertical Slice 0007 Scoping: Treatment Trade-Off Comparison (FR-004)
+
+Human direction: "Yes please" — scope FR-004 next, per the recommendation that it was the only remaining core-loop requirement with real content already in place (the UK/US corpus growth from earlier slices).
+
+AI contribution:
+
+- Drafted a mechanism surfacing five open questions, then ran the same one-question-at-a-time grilling pattern as prior slices.
+- Key resolutions: trade-off attributes stay as prose within Passage text, not structured columns (already proven to work from a live query); retrieval always widens to several closest Passages for every Query rather than detecting "comparison-seeking" questions specially (avoids a fragile intent classifier and a two-code-path architecture); a small fixed retrieval width of 5 (not "all Passages in the jurisdiction"); `grounding_status` stays independent of comparison, based purely on the single closest Passage's distance; no new UI structure, since the existing citations list already supports multiple entries.
+- Recognized this scopes out unusually small compared to prior slices: no schema change, no new UI code, no new seed data — mostly a retrieval-width constant and a prompt change, since the corpus content and citation-list UI needed for this were already built by Slices 0002 and 0004–0006.
+- Wrote `architecture/vertical-slice-0007-treatment-trade-off-comparison.md` and logged one combined decision-log entry covering all five resolutions.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation/TDD begins.
+
+### 2026-08-03 Vertical Slice 0007 Implementation: Treatment Trade-Off Comparison (FR-004)
+
+Human direction: "Go for it" — implement the slice as scoped and grilled.
+
+AI contribution:
+
+- TDD throughout, and genuinely small as scoped: raised `AnswerQueryWorkflow`'s retrieval limit from 1 to a named `MAX_RETRIEVED_PASSAGES = 5` constant, with new unit tests proving multiple Passages get retrieved and passed to generation while `grounding_status` stays keyed to the closest Passage only, regardless of how many others are also in play.
+- Extended `ClaudeGenerationProvider`'s system prompt with explicit compare-when-relevant instructions (temperature, organic-certification, treatment duration), while also explicitly telling it not to force a comparison when only one Passage is actually relevant — added a new live contract test proving this with two genuinely different real UK treatment Passages (Apivar/Apiguard), run for real (not just left to the skip path) to confirm it actually passes, not just that it's plausible.
+- Verified: full Python suite (40 passed, 4 skipped — one more skip than before, the new live comparison contract test, which was then also run for real with the API key and passed), ruff clean, Playwright/Gherkin (10/10, no regressions), and — importantly — a live query against the real dev backend and browser that produced a genuine, well-organized comparison across Apiguard and Apivar (correctly calling out the temperature-vs-organic-certification-vs-duration trade-off exactly as FR-004 describes), while also naturally surfacing that the older Apistan guidance is superseded, an unplanned but correct interaction with Slice 0004's existing supersession flagging.
+- This is the smallest slice of the whole project so far in terms of new code — the corpus content (Slice 0002 growth, Slice 0006's Formic Pro addition) and the citations-list UI (Slices 0004–0005) needed for this to work end-to-end were already built by the time this slice started, exactly as anticipated when it was scoped.
+
+Human judgment still required:
+
+- None outstanding for this slice — all acceptance criteria met, verified against both stub and real providers. FR-006 (source conflict detection) remains the only uncovered functional requirement, still blocked on finding or surfacing a genuine source disagreement.
+
+### 2026-08-03 Test Coverage Measurement, And A New Requirements-Traceability Discipline
+
+Human direction: asked for a measure of code coverage across test levels. After seeing the numbers, explained the real reason behind the question — the user does not read code on this project (or the sibling HiveSight project) and relies entirely on tests to know the system behaves correctly, including after future refactors. Asked how to structure testing so that requirement holds solidly, then asked for a traceability doc and, if sensible, a new skill.
+
+AI contribution:
+
+- Measured real coverage rather than estimating: added `pytest-cov` (venv-only) and `@vitest/coverage-v8` (a real devDependency, initially installed at the wrong major version — 4.x against a 3.x vitest — caught by the resulting `SyntaxError` and corrected to the matching 3.x release). Backend: 86% statement coverage with live-provider tests run for real, concentrated gaps in the two CLI tools' `main()` entry points (argparse/interactive wiring, correctly low-value to unit-test). Frontend: 92.8% of the one unit-tested module (`advisorApiClient.ts`), 0% of the three React components — not because they're untested, but because they're only exercised through Playwright/Gherkin, a tool Vitest's coverage report can't see into.
+- Named the actual distinction the user was reaching for: unit/integration tests are the implementer's safety net (require reading code to interpret, not something this user should need to trust directly); the Gherkin/Playwright acceptance suite is the layer built for exactly this user, since every scenario is already plain English and runs against the real system end-to-end. Pointed out this was already true in practice — every shipped FR already had a corresponding scenario — just never written down as something the user could check without asking.
+- Wrote `requirements/traceability.md`: one row per FR/NFR (including FR-000 and the Phase 2/deferred items and the non-functional requirements, not just the "wins"), each honestly marked covered/not-yet-covered/deferred/architectural-property rather than padding the doc to look more complete than it is. Explicitly excludes unit-test file names, on the reasoning that mixing a code-literate list into the one document meant to avoid code-literacy would defeat its purpose.
+- Flagged a real, previously-unstated gap while writing it: the acceptance suite proves retrieval/citation/UI *mechanics* via stub providers, not that the real Claude/Voyage integration behaves well — the only current check on real-AI-behaviour is the manual live-browser demos done once per slice, not automated or repeatable. Left this as an open decision rather than silently building a live-test pass without asking.
+- Added a new project-local skill, `.claude/skills/requirements-traceability/`, rather than editing the existing shared `sdlc-delivery-acceptance-bdd` skill (personal library, general Gherkin-authoring guidance, not specific to this project's traceability-tracking need, and this project doesn't even use its assumed pytest-bdd runner). Discovered along the way that `.claude/skills` didn't exist in this repo at all — no symlink, despite earlier session context suggesting one was intended — so the new skill is real, committed files, not a symlink to the user's personal library, keeping it reproducible for anyone who clones this repo.
+- Housekeeping caught in passing: added `.coverage` and `coverage/` to `.gitignore`, which had never been needed before since no coverage tooling existed.
+
+Human judgment still required:
+
+- Decide whether to keep `@vitest/coverage-v8` as permanent tooling or revert the dependency change, since it was added for this one-off measurement.
+- Decide whether the real-provider-behaviour gap (stub-only acceptance suite) needs an automated answer (e.g. an optional live-API scenario pass) or stays a manual-demo-only process.
+
+### 2026-08-03 Resolved The Two Open Points, And The Live Pass Immediately Found A Real Issue
+
+Human direction: "yes" — proceed with both recommendations (revert `@vitest/coverage-v8`; build the on-demand live-API scenario pass).
+
+AI contribution:
+
+- Reverted `@vitest/coverage-v8` cleanly (`pnpm remove`); verified Vitest and `tsc` still pass afterward. `pytest-cov` was already venv-only with no repo diff, so nothing to revert there.
+- Built `apps/web/playwright.live.config.ts` and a new `pnpm test:acceptance:live` script: reuses the existing feature files (no duplication), filters to a small subset via `grep` (grounded citation, no-grounding, comparison — the scenarios that meaningfully exercise real AI judgment, not the mostly-mechanical ones like jurisdiction isolation or supersession flagging), runs on distinct ports (8030/5203) against the real dev database with real API keys, and skips the stub-seeding `globalSetup` entirely so it reflects whatever is genuinely in the dev database.
+- Ran it for real rather than declaring it done once it existed. First run: 3 of 4 scenarios failed. Rather than assuming a config bug, investigated systematically — reran the full batch again (2 of 4 failed, different scenario passed this time, ruling out a deterministic config error), isolated the grounded-citation scenario alone (passed), then bypassed the browser/API layers entirely and measured the real Voyage distance directly and repeatedly (0.4548, three times, identical) to separate genuine embedding-based drift from LLM-citation sampling noise.
+- Found a real, reproducible issue, not a test bug: the grounding thresholds (0.35/0.55) were calibrated when each jurisdiction had one document; the UK jurisdiction now has four (Slices 0002, 0004, 0006). The no-grounding scenario's "unrelated question" example now measures deterministically into `partial` territory against the grown corpus, not the clearly-`ungrounded` result it gave at calibration time — and layered on top, real Claude citation-decision variance means the live suite sometimes still reports `ungrounded` (when Claude happens not to cite) and sometimes `partial` (when it does), on the exact same deterministic distance. Did not attempt to silently patch this (adjust thresholds, reword the scenario) without the user's input — recalibration is a real product decision, not a bug fix, consistent with how the original thresholds were explicitly logged as provisional and revisitable.
+- Housekeeping caught in the process: `test-results/` had never been gitignored at all, and `apps/web/playwright-report/index.html` was a tracked file silently churning on every test run since long before this session. Untracked it and added `playwright-report/`, `playwright-report-live/`, and `test-results/` to `.gitignore`.
+- Updated `requirements/roadmap.md`'s existing threshold-recalibration item with the concrete evidence (previously a hypothetical "this is provisional" note, now a measured, reproducible finding), and `requirements/traceability.md`'s Real-Provider Behaviour section to document the new live pass and what its first run actually found.
+
+Human judgment still required:
+
+- Decide how to handle the threshold drift: recalibrate 0.35/0.55 against a larger real query set, or accept that some example queries won't cleanly demonstrate their original grounding tier forever as the corpus keeps growing, and choose new example queries per scenario instead.
+- The live pass itself is genuinely useful going forward — consider running it after any future corpus-growth or threshold-related change, not just once.

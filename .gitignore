@@ -5,3 +5,8 @@ __pycache__/
 .env.local
 node_modules/
 .features-gen/
+.coverage
+coverage/
+playwright-report/
+playwright-report-live/
+test-results/

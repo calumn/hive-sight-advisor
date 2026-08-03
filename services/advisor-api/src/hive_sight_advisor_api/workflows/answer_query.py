@@ -17,6 +17,13 @@ from hive_sight_advisor_api.repositories.corpus_repository import CorpusReposito
 DEFAULT_GROUNDED_DISTANCE_THRESHOLD = 0.35
 DEFAULT_PARTIAL_DISTANCE_THRESHOLD = 0.55
 
+# How many nearest Passages to retrieve per Query, not just the single closest. Lets the
+# generation provider compare across genuinely relevant treatment options (FR-004) when more
+# than one exists, while grounding_status below still keys off the closest Passage only —
+# comparison and grounding are independent questions. See requirements/decision-log.md,
+# "Treatment Trade-Off Comparison Mechanism".
+MAX_RETRIEVED_PASSAGES = 5
+
 UNGROUNDED_ANSWER_TEXT = (
     "I don't have a grounded answer to that in the seeded corpus for this jurisdiction."
 )
@@ -76,7 +83,7 @@ class AnswerQueryWorkflow:
         query_id = uuid4()
         query_embedding = self._embedding_provider.embed(query_text)
         passages = self._corpus_repository.find_similar_passages(
-            query_embedding, jurisdiction_id=jurisdiction_id, limit=1
+            query_embedding, jurisdiction_id=jurisdiction_id, limit=MAX_RETRIEVED_PASSAGES
         )
         closest_distance = passages[0].distance if passages else None
 

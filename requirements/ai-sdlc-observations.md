@@ -370,3 +370,20 @@ AI contribution:
 Human judgment still required:
 
 - None outstanding for this slice — all acceptance criteria met. FR-004 and FR-006 remain the only uncovered functional requirements.
+
+### 2026-08-03 Roadmap Document And CI Pipeline
+
+Human direction: wanted a standing document listing candidate future slices broken into business/technical categories, since none existed. After reviewing it, asked "what is next" again; recommended a CI pipeline over touching FR-004/FR-006 directly, since both remaining functional requirements need genuine content-sourcing work (real, accurately-cited treatment-option documents) first, which is a different kind of task from engineering work and shouldn't be rushed into. User agreed.
+
+AI contribution:
+
+- Wrote `requirements/roadmap.md`: Business and Technical sections, every item cross-checked against the actual repo state before being listed (e.g. confirmed no `.github/workflows` existed before citing that as a gap, verified decision-log entry titles cited exactly rather than paraphrased) rather than assuming or fabricating gaps.
+- Implemented `.github/workflows/ci.yml`: three parallel jobs — `backend` (pytest + ruff against a `pgvector/pgvector:pg16` service container, mirroring `docker-compose.yml` exactly so no `DATABASE_URL` override is needed), `web` (tsc + Vitest, no database needed), and `acceptance` (builds the `.venv-advisor-api` venv at the exact relative path `playwright.config.ts` already hardcodes, installs Playwright's Chromium browser only, runs the full Gherkin suite, uploads the HTML report as an artifact on any outcome). No GitHub secrets are required anywhere in the pipeline, since every test path already runs on stub providers.
+- Added a `test:web` root script (`pnpm --filter hive-sight-advisor-web test`) to match the existing `check:web`/`build:web`/`dev:web` naming convention, used by both the new CI job and available locally.
+- Verified locally before considering it done: `pnpm install --frozen-lockfile` (matches CI's install step), the new `check:web`/`test:web` scripts, and validated the workflow YAML actually parses with the expected job structure (no live GitHub Actions run possible from here, since the workflow only executes once pushed).
+- User asked mid-task whether this required git; confirmed it didn't — the workflow file itself is authored the same way as every other slice, and per the standing git-hands-off preference, committing and pushing (which is the only way to actually see it run) is the user's action, not something performed here.
+
+Human judgment still required:
+
+- Push this to GitHub to see the pipeline actually execute for the first time — nothing here can be verified against real GitHub Actions infrastructure from this environment.
+- Decide next: FR-004/FR-006 (needs real source content first) vs. another Technical-category item from the roadmap.

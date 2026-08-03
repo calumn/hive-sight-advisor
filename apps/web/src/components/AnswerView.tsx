@@ -22,7 +22,28 @@ export function AnswerView({ answer }: AnswerViewProps) {
       {answer.citations.length > 0 && (
         <ul className="answer-citations">
           {answer.citations.map((citation) => (
-            <li key={citation.passageId}>Source passage: {citation.passageId}</li>
+            <li key={citation.passageId} className="citation">
+              <span className="citation-title">{citation.documentTitle}</span>
+              {" — "}
+              {citation.documentSourceUrl ? (
+                <a href={citation.documentSourceUrl} target="_blank" rel="noreferrer">
+                  {citation.documentSource}
+                </a>
+              ) : (
+                <span>{citation.documentSource}</span>
+              )}
+              {" "}
+              <span className="citation-licence">({citation.documentLicenceTerms})</span>
+              {citation.isSuperseded && (
+                <p className="citation-superseded-warning">
+                  This source has been superseded
+                  {citation.supersededByDocumentTitle
+                    ? ` by "${citation.supersededByDocumentTitle}"`
+                    : ""}
+                  {" "}— treat this guidance as outdated, not current.
+                </p>
+              )}
+            </li>
           ))}
         </ul>
       )}

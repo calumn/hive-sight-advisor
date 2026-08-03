@@ -308,3 +308,35 @@ AI contribution:
 Human judgment still required:
 
 - None outstanding for this slice — all acceptance criteria met. Next step is the same open-scope question as before: FR-004 through FR-007 and NFR-003 remain uncovered by any slice.
+
+### 2026-08-03 Vertical Slice 0004 Scoping: Source Supersession And Provenance Display (FR-005 + NFR-003)
+
+Human direction: "what next" after Slice 0003. Recommended pairing FR-005 (source supersession) with NFR-003 (provenance/licence metadata) as the smallest remaining gap, rather than FR-007 (bigger — needs a new write path) or FR-004/FR-006 (bigger — need multiple competing corpus passages, not just metadata). User agreed and asked to scope it.
+
+AI contribution:
+
+- Checked the actual schema and domain model before drafting rather than assuming a blank slate: `corpus_documents` already has `source`, `licence_terms`, `status`, and `superseded_by_corpus_document_id` from Slice 0001's migration, populated with real values by the seed script but never surfaced past the repository layer — and the UI today renders a citation as a raw passage UUID, not even a document title. Also found the domain model calls for two fields never actually built into the schema: "source url or reference" and "retrieved/version date."
+- Drafted a mechanism surfacing six real open questions, then ran the same one-question-at-a-time grilling pattern as Slice 0003 — each with a stated recommendation, each confirmed individually before moving to the next.
+- Key resolutions: retrieval still surfaces and cites superseded documents (excluding them would make the "flag" behaviour in FR-005's own wording unobservable); the superseded signal lives on the Citation, not as a fourth `grounding_status` value, keeping "well-matched" and "current" as independent dimensions; NFR-003 applies unconditionally to every citation, not just superseded ones; `created_at` is treated as satisfying the domain model's "retrieved/version date" for v1 (deferred, not built) while a new `source_url` column is added now (cheap, and materially strengthens NFR-003's real licence-attribution intent) — two schema gaps judged on different cost/value terms rather than both deferred or both built by default.
+- Wrote `architecture/vertical-slice-0004-source-supersession-and-provenance.md` and logged one combined decision-log entry covering all six resolutions.
+
+Human judgment still required:
+
+- Approve the slice doc (or adjust) before implementation/TDD begins.
+
+### 2026-08-03 Vertical Slice 0004 Implementation: Source Supersession And Provenance Display (FR-005 + NFR-003)
+
+Human direction: "go for it" — implement the slice as scoped and grilled.
+
+AI contribution:
+
+- Caught and corrected a drafting error before implementation started: the slice doc claimed the superseded case would "tell the generation provider to hedge, mirroring `partial`," but checking the actual Slice 0003 code showed `partial` never touches the generation prompt — Claude just naturally hedges when the passage is a poor match. Simplified the mechanism to pure Citation-level metadata with no generation-provider changes, and corrected the slice doc and decision log to match before writing any code.
+- TDD throughout, backend first: added a `source_url` migration; extended `CorpusRepository.find_similar_passages` to join through each Passage's parent Corpus Document (title, source, source URL, licence terms, status, superseding document's title via a self-join); extended `AnswerQueryWorkflow`'s `Citation` to carry that provenance on every citation unconditionally and flag `is_superseded` when the source document's status is `superseded`.
+- Seed script: added real source URLs for both existing documents, and seeded one new, deliberately outdated UK document (an old Apistan/fluvalinate-strip guide, since superseded by widespread resistance) marked `superseded_by_corpus_document_id` pointing at the current UK guide — giving the slice something real to demonstrate against.
+- UI: citation rendering upgraded from a raw passage UUID to a real attribution block (title, clickable source link, licence terms), with a distinct amber warning banner when a citation's source is superseded.
+- Extending the Playwright + Gherkin suite surfaced an expected knock-on effect: the old step definitions asserted a citation `.toContainText` the passage's raw UUID, which no longer appears anywhere in the DOM now that citations render real attribution instead. Updated those step definitions (Slices 0001 and 0002) to check for the document's title instead — a more meaningful assertion than the UUID ever was, not a workaround.
+- Verified: full Python suite (17 passed, 2 skipped, `ruff` clean), Vitest (2 passed), `tsc --noEmit` clean, Playwright + Gherkin (7 passed, including the 2 new scenarios), and a live manual pass in the browser against the real Voyage/Claude backend confirming the superseded-source warning, clickable source link, and licence terms all render correctly.
+
+Human judgment still required:
+
+- None outstanding for this slice — all acceptance criteria met. FR-004, FR-006, and FR-007 remain the only uncovered functional requirements.

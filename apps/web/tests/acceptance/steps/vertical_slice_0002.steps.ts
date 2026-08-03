@@ -3,20 +3,20 @@ import { createBdd } from "playwright-bdd";
 
 const { Then } = createBdd();
 
-const PASSAGE_ID_BY_JURISDICTION: Record<string, string> = {
-  "United Kingdom": "00000000-0000-0000-0000-000000000601",
-  "United States": "00000000-0000-0000-0000-000000000602"
+const DOCUMENT_TITLE_BY_JURISDICTION: Record<string, string> = {
+  "United Kingdom": "Managing Varroa: A Guide for UK Beekeepers",
+  "United States": "Tools for Varroa Management"
 };
 
 Then("the Answer cites the {string} seeded Passage", async ({ page }, jurisdiction: string) => {
-  const passageId = PASSAGE_ID_BY_JURISDICTION[jurisdiction];
-  await expect(page.locator(".answer-citations")).toContainText(passageId);
+  const documentTitle = DOCUMENT_TITLE_BY_JURISDICTION[jurisdiction];
+  await expect(page.locator(".answer-citations")).toContainText(documentTitle);
 });
 
 Then(
   "the Answer does not cite the {string} seeded Passage",
   async ({ page }, jurisdiction: string) => {
-    const passageId = PASSAGE_ID_BY_JURISDICTION[jurisdiction];
-    await expect(page.locator(".answer-citations")).not.toContainText(passageId);
+    const documentTitle = DOCUMENT_TITLE_BY_JURISDICTION[jurisdiction];
+    await expect(page.locator(".answer-citations")).not.toContainText(documentTitle);
   }
 );

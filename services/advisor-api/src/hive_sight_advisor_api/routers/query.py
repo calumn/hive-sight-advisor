@@ -20,6 +20,12 @@ class QueryRequest(BaseModel):
 
 class CitationResponse(BaseModel):
     passage_id: UUID
+    document_title: str
+    document_source: str
+    document_source_url: str | None
+    document_licence_terms: str
+    is_superseded: bool
+    superseded_by_document_title: str | None
 
 
 class AnswerResponse(BaseModel):
@@ -51,5 +57,16 @@ def submit_query(
         query_id=answer.query_id,
         text=answer.text,
         grounding_status=answer.grounding_status,
-        citations=[CitationResponse(passage_id=citation.passage_id) for citation in answer.citations],
+        citations=[
+            CitationResponse(
+                passage_id=citation.passage_id,
+                document_title=citation.document_title,
+                document_source=citation.document_source,
+                document_source_url=citation.document_source_url,
+                document_licence_terms=citation.document_licence_terms,
+                is_superseded=citation.is_superseded,
+                superseded_by_document_title=citation.superseded_by_document_title,
+            )
+            for citation in answer.citations
+        ],
     )

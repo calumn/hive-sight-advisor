@@ -27,6 +27,12 @@ class Citation:
     id: UUID
     answer_id: UUID
     passage_id: UUID
+    document_title: str
+    document_source: str
+    document_source_url: str | None
+    document_licence_terms: str
+    is_superseded: bool
+    superseded_by_document_title: str | None
 
 
 @dataclass(frozen=True)
@@ -85,8 +91,21 @@ class AnswerQueryWorkflow:
         else:
             generated = self._generation_provider.generate_answer(query_text, passages)
             answer_id = uuid4()
+            passages_by_id = {passage.id: passage for passage in passages}
             citations = [
-                Citation(id=uuid4(), answer_id=answer_id, passage_id=passage_id)
+                Citation(
+                    id=uuid4(),
+                    answer_id=answer_id,
+                    passage_id=passage_id,
+                    document_title=passages_by_id[passage_id].document_title,
+                    document_source=passages_by_id[passage_id].document_source,
+                    document_source_url=passages_by_id[passage_id].document_source_url,
+                    document_licence_terms=passages_by_id[passage_id].document_licence_terms,
+                    is_superseded=passages_by_id[passage_id].document_status == "superseded",
+                    superseded_by_document_title=passages_by_id[
+                        passage_id
+                    ].superseded_by_document_title,
+                )
                 for passage_id in generated.cited_passage_ids
             ]
             if not citations:

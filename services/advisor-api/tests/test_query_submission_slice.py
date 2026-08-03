@@ -32,10 +32,17 @@ def test_submit_query_with_valid_membership_returns_grounded_answer(postgres_con
             )
             cursor.execute(
                 """
-                INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO corpus_documents (id, jurisdiction_id, title, source, source_url, licence_terms)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (corpus_document_id, jurisdiction_id, "Varroa Guide", "HBHC", "CC BY-NC-ND"),
+                (
+                    corpus_document_id,
+                    jurisdiction_id,
+                    "Varroa Guide",
+                    "HBHC",
+                    "https://honeybeehealthcoalition.org/varroa/",
+                    "CC BY-NC-ND",
+                ),
             )
             cursor.execute(
                 """
@@ -60,7 +67,17 @@ def test_submit_query_with_valid_membership_returns_grounded_answer(postgres_con
         assert response.status_code == 200
         body = response.json()
         assert body["grounding_status"] == "grounded"
-        assert body["citations"] == [{"passage_id": str(passage_id)}]
+        assert body["citations"] == [
+            {
+                "passage_id": str(passage_id),
+                "document_title": "Varroa Guide",
+                "document_source": "HBHC",
+                "document_source_url": "https://honeybeehealthcoalition.org/varroa/",
+                "document_licence_terms": "CC BY-NC-ND",
+                "is_superseded": False,
+                "superseded_by_document_title": None,
+            }
+        ]
         assert "oxalic acid" in body["text"]
     finally:
         app.dependency_overrides.clear()

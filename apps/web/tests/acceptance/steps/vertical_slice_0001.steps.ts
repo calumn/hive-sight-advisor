@@ -3,7 +3,7 @@ import { createBdd } from "playwright-bdd";
 
 const { Given, When, Then } = createBdd();
 
-const SEEDED_PASSAGE_ID = "00000000-0000-0000-0000-000000000601";
+const SEEDED_DOCUMENT_TITLE = "Managing Varroa: A Guide for UK Beekeepers";
 
 Given("the Beekeeper is on the Advisor home page", async ({ page }) => {
   await page.goto("/");
@@ -24,5 +24,5 @@ Then("the Beekeeper sees a grounded Answer", async ({ page }) => {
 });
 
 Then("the Answer cites the seeded Passage", async ({ page }) => {
-  await expect(page.locator(".answer-citations")).toContainText(SEEDED_PASSAGE_ID);
+  await expect(page.locator(".answer-citations")).toContainText(SEEDED_DOCUMENT_TITLE);
 });

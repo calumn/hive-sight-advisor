@@ -1,5 +1,11 @@
 export type Citation = {
   passageId: string;
+  documentTitle: string;
+  documentSource: string;
+  documentSourceUrl: string | null;
+  documentLicenceTerms: string;
+  isSuperseded: boolean;
+  supersededByDocumentTitle: string | null;
 };
 
 export type Answer = {
@@ -70,7 +76,18 @@ function parseAnswer(value: unknown): Answer {
 
 function parseCitation(value: unknown): Citation {
   const record = requireRecord(value, "citation");
-  return { passageId: requireString(record.passage_id, "passage_id") };
+  return {
+    passageId: requireString(record.passage_id, "passage_id"),
+    documentTitle: requireString(record.document_title, "document_title"),
+    documentSource: requireString(record.document_source, "document_source"),
+    documentSourceUrl: requireNullableString(record.document_source_url, "document_source_url"),
+    documentLicenceTerms: requireString(record.document_licence_terms, "document_licence_terms"),
+    isSuperseded: requireBoolean(record.is_superseded, "is_superseded"),
+    supersededByDocumentTitle: requireNullableString(
+      record.superseded_by_document_title,
+      "superseded_by_document_title"
+    )
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,6 +111,20 @@ function requireArray(value: unknown, field: string): unknown[] {
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string") {
     throw new Error(`${field} was not a string`);
+  }
+  return value;
+}
+
+function requireNullableString(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
+  }
+  return requireString(value, field);
+}
+
+function requireBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(`${field} was not a boolean`);
   }
   return value;
 }

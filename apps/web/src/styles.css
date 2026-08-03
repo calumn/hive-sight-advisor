@@ -131,3 +131,20 @@ h1 {
   font-size: 0.85rem;
   color: #4a4033;
 }
+
+.citation-title {
+  font-weight: 600;
+}
+
+.citation-licence {
+  color: #6b5f4f;
+}
+
+.citation-superseded-warning {
+  margin: 0.35rem 0 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: #f6e6c3;
+  color: #6b4f13;
+  font-weight: 600;
+}

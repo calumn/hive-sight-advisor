@@ -14,7 +14,17 @@ describe("submitQuery", () => {
           query_id: "query-1",
           text: "Treat varroa with oxalic acid.",
           grounding_status: "grounded",
-          citations: [{ passage_id: "passage-1" }]
+          citations: [
+            {
+              passage_id: "passage-1",
+              document_title: "Varroa Guide",
+              document_source: "HBHC",
+              document_source_url: "https://honeybeehealthcoalition.org/varroa/",
+              document_licence_terms: "CC BY-NC-ND",
+              is_superseded: false,
+              superseded_by_document_title: null
+            }
+          ]
         }),
         { status: 200 }
       )
@@ -47,7 +57,17 @@ describe("submitQuery", () => {
       queryId: "query-1",
       text: "Treat varroa with oxalic acid.",
       groundingStatus: "grounded",
-      citations: [{ passageId: "passage-1" }]
+      citations: [
+        {
+          passageId: "passage-1",
+          documentTitle: "Varroa Guide",
+          documentSource: "HBHC",
+          documentSourceUrl: "https://honeybeehealthcoalition.org/varroa/",
+          documentLicenceTerms: "CC BY-NC-ND",
+          isSuperseded: false,
+          supersededByDocumentTitle: null
+        }
+      ]
     });
   });
 

@@ -6,6 +6,21 @@ from hive_sight_advisor_api.repositories.corpus_repository import Passage
 from hive_sight_advisor_api.workflows.answer_query import AnswerQueryWorkflow
 
 
+def _passage(*, text_content: str, distance: float) -> Passage:
+    return Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content=text_content,
+        distance=distance,
+        document_title="Managing Varroa: A Guide for UK Beekeepers",
+        document_source="APHA BeeBase",
+        document_source_url="https://www.nationalbeeunit.com/",
+        document_licence_terms="Open Government Licence",
+        document_status="active",
+        superseded_by_document_title=None,
+    )
+
+
 class _FakeCorpusRepository:
     def __init__(self, passages: list[Passage]) -> None:
         self._passages = passages
@@ -33,9 +48,7 @@ class _SpyGenerationProvider:
 
 
 def test_answer_query_orchestrates_embed_retrieve_generate_and_persist() -> None:
-    passage = Passage(
-        id=uuid.uuid4(),
-        corpus_document_id=uuid.uuid4(),
+    passage = _passage(
         text_content="Varroa mites are treated with an oxalic acid vaporization protocol.",
         distance=0.1,
     )
@@ -72,9 +85,7 @@ def test_answer_query_orchestrates_embed_retrieve_generate_and_persist() -> None
 
 
 def test_answer_query_is_ungrounded_and_skips_generation_when_nothing_is_close_enough() -> None:
-    far_passage = Passage(
-        id=uuid.uuid4(),
-        corpus_document_id=uuid.uuid4(),
+    far_passage = _passage(
         text_content="Something entirely unrelated to the question.",
         distance=0.9,
     )
@@ -118,9 +129,7 @@ def test_answer_query_is_ungrounded_when_no_passage_exists_for_the_jurisdiction(
 
 
 def test_answer_query_is_partial_when_the_closest_passage_is_only_somewhat_related() -> None:
-    related_passage = Passage(
-        id=uuid.uuid4(),
-        corpus_document_id=uuid.uuid4(),
+    related_passage = _passage(
         text_content="Adjacent guidance that does not directly answer the question.",
         distance=0.45,
     )
@@ -142,3 +151,64 @@ def test_answer_query_is_partial_when_the_closest_passage_is_only_somewhat_relat
     assert len(answer.citations) == 1
     assert answer.citations[0].passage_id == related_passage.id
     assert generation_provider.call_count == 1
+
+
+def test_answer_query_carries_provenance_on_every_citation() -> None:
+    passage = _passage(
+        text_content="Varroa mites are treated with an oxalic acid vaporization protocol.",
+        distance=0.1,
+    )
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=StubGenerationProvider(),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="How do I treat varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert len(answer.citations) == 1
+    citation = answer.citations[0]
+    assert citation.document_title == passage.document_title
+    assert citation.document_source == passage.document_source
+    assert citation.document_source_url == passage.document_source_url
+    assert citation.document_licence_terms == passage.document_licence_terms
+    assert citation.is_superseded is False
+    assert citation.superseded_by_document_title is None
+
+
+def test_answer_query_flags_a_citation_from_a_superseded_source() -> None:
+    passage = Passage(
+        id=uuid.uuid4(),
+        corpus_document_id=uuid.uuid4(),
+        text_content="Older Varroa guidance, still the closest match.",
+        distance=0.1,
+        document_title="Managing Varroa (2018 edition)",
+        document_source="APHA BeeBase",
+        document_source_url="https://www.nationalbeeunit.com/",
+        document_licence_terms="Open Government Licence",
+        document_status="superseded",
+        superseded_by_document_title="Managing Varroa (2024 edition)",
+    )
+    workflow = AnswerQueryWorkflow(
+        corpus_repository=_FakeCorpusRepository([passage]),
+        embedding_provider=StubEmbeddingProvider(),
+        generation_provider=StubGenerationProvider(),
+        query_repository=_FakeQueryRepository(),
+    )
+
+    answer = workflow.answer_query(
+        workspace_id=uuid.uuid4(),
+        query_text="How do I treat varroa?",
+        jurisdiction_id=uuid.uuid4(),
+    )
+
+    assert answer.grounding_status == "grounded"
+    assert len(answer.citations) == 1
+    citation = answer.citations[0]
+    assert citation.is_superseded is True
+    assert citation.superseded_by_document_title == "Managing Varroa (2024 edition)"

@@ -23,6 +23,9 @@ UK_GUIDE_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000601")
 US_GUIDE_DOCUMENT_ID = UUID("00000000-0000-0000-0000-000000000502")
 US_GUIDE_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000602")
 
+UK_OLD_GUIDE_DOCUMENT_ID = UUID("00000000-0000-0000-0000-000000000503")
+UK_OLD_GUIDE_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000603")
+
 UK_PASSAGE_TEXT = (
     "Varroa destructor mites are treated using an integrated pest management approach. "
     "In the UK, the most common autumn treatment is oxalic acid vaporisation, applied when "
@@ -44,6 +47,14 @@ US_PASSAGE_TEXT = (
     "timing, temperature range, and honey super restrictions specific to each active ingredient."
 )
 
+UK_OLD_PASSAGE_TEXT = (
+    "Older APHA guidance (since updated) recommended Apistan (fluvalinate) strips as the "
+    "primary autumn Varroa treatment, left in the hive for six to eight weeks during a "
+    "broodless period. This guidance has been superseded due to widespread fluvalinate "
+    "resistance in UK Varroa populations; consult current guidance for up-to-date treatment "
+    "recommendations."
+)
+
 
 @dataclass(frozen=True)
 class SeedJurisdiction:
@@ -53,6 +64,7 @@ class SeedJurisdiction:
     document_id: UUID
     document_title: str
     document_source: str
+    source_url: str
     licence_terms: str
     passage_id: UUID
     passage_text: str
@@ -66,6 +78,7 @@ JURISDICTIONS = [
         document_id=UK_GUIDE_DOCUMENT_ID,
         document_title="Managing Varroa: A Guide for UK Beekeepers",
         document_source="APHA BeeBase",
+        source_url="https://www.nationalbeeunit.com/",
         licence_terms="Open Government Licence",
         passage_id=UK_GUIDE_PASSAGE_ID,
         passage_text=UK_PASSAGE_TEXT,
@@ -77,9 +90,38 @@ JURISDICTIONS = [
         document_id=US_GUIDE_DOCUMENT_ID,
         document_title="Tools for Varroa Management",
         document_source="Honey Bee Health Coalition (HBHC)",
+        source_url="https://honeybeehealthcoalition.org/varroa/",
         licence_terms="CC BY-NC-ND",
         passage_id=US_GUIDE_PASSAGE_ID,
         passage_text=US_PASSAGE_TEXT,
+    ),
+]
+
+
+@dataclass(frozen=True)
+class SupersededDocument:
+    jurisdiction_id: UUID
+    document_id: UUID
+    document_title: str
+    document_source: str
+    source_url: str
+    licence_terms: str
+    superseded_by_document_id: UUID
+    passage_id: UUID
+    passage_text: str
+
+
+SUPERSEDED_DOCUMENTS = [
+    SupersededDocument(
+        jurisdiction_id=UK_JURISDICTION_ID,
+        document_id=UK_OLD_GUIDE_DOCUMENT_ID,
+        document_title="Managing Varroa: A Guide for UK Beekeepers (2015 edition)",
+        document_source="APHA BeeBase",
+        source_url="https://www.nationalbeeunit.com/",
+        licence_terms="Open Government Licence",
+        superseded_by_document_id=UK_GUIDE_DOCUMENT_ID,
+        passage_id=UK_OLD_GUIDE_PASSAGE_ID,
+        passage_text=UK_OLD_PASSAGE_TEXT,
     ),
 ]
 
@@ -120,11 +162,12 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                 )
                 cursor.execute(
                     """
-                    INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO corpus_documents (id, jurisdiction_id, title, source, source_url, licence_terms)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                         title = EXCLUDED.title,
                         source = EXCLUDED.source,
+                        source_url = EXCLUDED.source_url,
                         licence_terms = EXCLUDED.licence_terms
                     """,
                     (
@@ -132,6 +175,7 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                         jurisdiction.jurisdiction_id,
                         jurisdiction.document_title,
                         jurisdiction.document_source,
+                        jurisdiction.source_url,
                         jurisdiction.licence_terms,
                     ),
                 )
@@ -151,6 +195,48 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                         embedding,
                     ),
                 )
+
+            for superseded in SUPERSEDED_DOCUMENTS:
+                cursor.execute(
+                    """
+                    INSERT INTO corpus_documents
+                        (id, jurisdiction_id, title, source, source_url, licence_terms, status,
+                         superseded_by_corpus_document_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'superseded', %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        source = EXCLUDED.source,
+                        source_url = EXCLUDED.source_url,
+                        licence_terms = EXCLUDED.licence_terms,
+                        status = EXCLUDED.status,
+                        superseded_by_corpus_document_id = EXCLUDED.superseded_by_corpus_document_id
+                    """,
+                    (
+                        superseded.document_id,
+                        superseded.jurisdiction_id,
+                        superseded.document_title,
+                        superseded.document_source,
+                        superseded.source_url,
+                        superseded.licence_terms,
+                        superseded.superseded_by_document_id,
+                    ),
+                )
+                embedding = embedding_provider.embed(superseded.passage_text)
+                cursor.execute(
+                    """
+                    INSERT INTO passages (id, corpus_document_id, text_content, embedding)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        text_content = EXCLUDED.text_content,
+                        embedding = EXCLUDED.embedding
+                    """,
+                    (
+                        superseded.passage_id,
+                        superseded.document_id,
+                        superseded.passage_text,
+                        embedding,
+                    ),
+                )
         connection.commit()
 
     print("Seeded Slice 0001/0002 dev data:")
@@ -158,6 +244,8 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
     print(f"  dev workspace id: {DEV_WORKSPACE_ID}")
     for jurisdiction in JURISDICTIONS:
         print(f"  {jurisdiction.display_name} jurisdiction id: {jurisdiction.jurisdiction_id}")
+    for superseded in SUPERSEDED_DOCUMENTS:
+        print(f"  superseded document seeded: {superseded.document_title}")
 
 
 def main() -> None:

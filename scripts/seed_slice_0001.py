@@ -26,6 +26,11 @@ US_GUIDE_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000602")
 UK_OLD_GUIDE_DOCUMENT_ID = UUID("00000000-0000-0000-0000-000000000503")
 UK_OLD_GUIDE_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000603")
 
+UK_APIVAR_DOCUMENT_ID = UUID("00000000-0000-0000-0000-000000000504")
+UK_APIVAR_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000604")
+UK_APIGUARD_DOCUMENT_ID = UUID("00000000-0000-0000-0000-000000000505")
+UK_APIGUARD_PASSAGE_ID = UUID("00000000-0000-0000-0000-000000000605")
+
 UK_PASSAGE_TEXT = (
     "Varroa destructor mites are treated using an integrated pest management approach. "
     "In the UK, the most common autumn treatment is oxalic acid vaporisation, applied when "
@@ -53,6 +58,27 @@ UK_OLD_PASSAGE_TEXT = (
     "broodless period. This guidance has been superseded due to widespread fluvalinate "
     "resistance in UK Varroa populations; consult current guidance for up-to-date treatment "
     "recommendations."
+)
+
+UK_APIVAR_PASSAGE_TEXT = (
+    "Apivar is a UK-authorised Varroa treatment using amitraz-impregnated strips hung between "
+    "the brood frames. Unlike temperature-sensitive treatments, Apivar has no temperature "
+    "restriction and can be used at any time of year. Strips are left in place for six to ten "
+    "weeks depending on brood size and season, with the longer duration recommended in autumn. "
+    "Honey supers must be removed before treatment, since amitraz is not permitted while supers "
+    "intended for human consumption are on the hive. Amitraz is a synthetic acaricide and is not "
+    "compatible with organic certification standards."
+)
+
+UK_APIGUARD_PASSAGE_TEXT = (
+    "Apiguard is a UK-authorised Varroa treatment based on thymol, a compound derived from thyme "
+    "oil, supplied as a gel tray placed on top of the brood frames. It works best when daytime "
+    "temperatures reach at least fifteen degrees Celsius, making it a warmer-months treatment "
+    "rather than a year-round option. The standard regime is two fifty-gram doses roughly two "
+    "weeks apart, for a total treatment period of around four to six weeks. As with other "
+    "chemical treatments, honey supers must be removed before treatment and only replaced once "
+    "treatment is complete. Because thymol is plant-derived, Apiguard is compatible with organic "
+    "certification standards, unlike synthetic acaricides such as amitraz."
 )
 
 
@@ -122,6 +148,47 @@ SUPERSEDED_DOCUMENTS = [
         superseded_by_document_id=UK_GUIDE_DOCUMENT_ID,
         passage_id=UK_OLD_GUIDE_PASSAGE_ID,
         passage_text=UK_OLD_PASSAGE_TEXT,
+    ),
+]
+
+
+@dataclass(frozen=True)
+class AdditionalDocument:
+    jurisdiction_id: UUID
+    document_id: UUID
+    document_title: str
+    document_source: str
+    source_url: str
+    licence_terms: str
+    passage_id: UUID
+    passage_text: str
+
+
+# Additional real UK treatment-option documents, alongside the primary jurisdiction guide, so
+# there is more than one genuine treatment option per jurisdiction to compare (prerequisite for
+# FR-004). Unlike the primary guide's Open Government Licence source, these come from a retailer
+# product page and a manufacturer FAQ respectively, so their licence terms are framed honestly as
+# "all rights reserved" rather than borrowing the OGL framing of the primary document.
+ADDITIONAL_DOCUMENTS = [
+    AdditionalDocument(
+        jurisdiction_id=UK_JURISDICTION_ID,
+        document_id=UK_APIVAR_DOCUMENT_ID,
+        document_title="Apivar (Amitraz) Varroa Treatment",
+        document_source="Thorne (Beehives) Ltd — product information",
+        source_url="https://www.thorne.co.uk/health-feeding/pests-diseases/varroa/varroa-chemical/apivar.html",
+        licence_terms="All rights reserved (retailer product literature)",
+        passage_id=UK_APIVAR_PASSAGE_ID,
+        passage_text=UK_APIVAR_PASSAGE_TEXT,
+    ),
+    AdditionalDocument(
+        jurisdiction_id=UK_JURISDICTION_ID,
+        document_id=UK_APIGUARD_DOCUMENT_ID,
+        document_title="Apiguard (Thymol) Varroa Treatment",
+        document_source="Vita Bee Health — manufacturer FAQ",
+        source_url="https://www.vita-europe.com/beehealth/wp-content/uploads/apiguard-faq.pdf",
+        licence_terms="All rights reserved (manufacturer product literature)",
+        passage_id=UK_APIGUARD_PASSAGE_ID,
+        passage_text=UK_APIGUARD_PASSAGE_TEXT,
     ),
 ]
 
@@ -237,6 +304,42 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                         embedding,
                     ),
                 )
+            for additional in ADDITIONAL_DOCUMENTS:
+                cursor.execute(
+                    """
+                    INSERT INTO corpus_documents (id, jurisdiction_id, title, source, source_url, licence_terms)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        source = EXCLUDED.source,
+                        source_url = EXCLUDED.source_url,
+                        licence_terms = EXCLUDED.licence_terms
+                    """,
+                    (
+                        additional.document_id,
+                        additional.jurisdiction_id,
+                        additional.document_title,
+                        additional.document_source,
+                        additional.source_url,
+                        additional.licence_terms,
+                    ),
+                )
+                embedding = embedding_provider.embed(additional.passage_text)
+                cursor.execute(
+                    """
+                    INSERT INTO passages (id, corpus_document_id, text_content, embedding)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        text_content = EXCLUDED.text_content,
+                        embedding = EXCLUDED.embedding
+                    """,
+                    (
+                        additional.passage_id,
+                        additional.document_id,
+                        additional.passage_text,
+                        embedding,
+                    ),
+                )
         connection.commit()
 
     print("Seeded Slice 0001/0002 dev data:")
@@ -246,6 +349,8 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
         print(f"  {jurisdiction.display_name} jurisdiction id: {jurisdiction.jurisdiction_id}")
     for superseded in SUPERSEDED_DOCUMENTS:
         print(f"  superseded document seeded: {superseded.document_title}")
+    for additional in ADDITIONAL_DOCUMENTS:
+        print(f"  additional treatment-option document seeded: {additional.document_title}")
 
 
 def main() -> None:

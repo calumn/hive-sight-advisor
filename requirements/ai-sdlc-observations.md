@@ -402,3 +402,22 @@ AI contribution:
 Human judgment still required:
 
 - None — CI is green. Same open decision as above: FR-004/FR-006 vs. another Technical-category roadmap item.
+
+### 2026-08-03 UK Corpus Growth: Real Treatment-Option Documents For FR-004
+
+Human direction: "Let's pick up FR-005 source content for FR-004/FR-006" — pick up the roadmap's corpus-growth item to unblock the two remaining functional requirements. Asked first how to source it, since these passages become grounding truth the system cites as authoritative: user chose researching real published guidance (not fabricating content) over supplying source material directly, and chose the UK jurisdiction to start.
+
+AI contribution:
+
+- Researched real, currently-authorised UK Varroa treatments via WebSearch/WebFetch rather than inventing plausible-sounding content: Apivar (amitraz, Thorne retailer product page) and Apiguard (thymol, Vita Bee Health's own manufacturer FAQ), cross-checking product-label facts (temperature constraints, organic-certification compatibility, honey-super timing) against multiple sources before writing anything.
+- Found the two products give genuinely different, real trade-off attributes alongside the corpus's existing oxalic-acid document — no temperature constraint but not organic-certifiable (Apivar) vs. needs warm weather but is organic-certifiable (Apiguard) vs. typically broodless-season timing (the existing oxalic acid document) — real material for a future FR-004 comparison slice, not contrived.
+- Flagged before writing anything that Apivar/Apiguard's sources (a retailer page, a manufacturer FAQ) don't carry an open licence like the existing OGL/CC-BY-NC-ND documents, so their `licence_terms` are honestly framed as "all rights reserved (retailer/manufacturer product literature)" rather than borrowing the existing documents' framing. Confirmed with the user before seeding.
+- Also flagged and deliberately scoped out FR-006: couldn't find a real, clean example of two UK authoritative sources materially disagreeing (manufacturers/regulators don't tend to publish contradictions), so didn't force one into the corpus — left as a separate, harder future research task rather than fabricating a disagreement to satisfy the requirement.
+- Implementation was pure content/data work, not new behaviour: added the two documents to `scripts/seed_slice_0001.py`'s existing `AdditionalDocument` pattern (mirroring the `SupersededDocument` pattern from Slice 0004) — no backend code changes were needed, since multi-document-per-jurisdiction retrieval already worked correctly from Slice 0004 onward.
+- Hit the known Voyage AI free-tier rate limit (documented in the roadmap) re-seeding the real dev database with 5 embedding calls in one run; worked around it with a one-off paced-embedding wrapper script in the scratchpad, not a permanent change to the seed script or `VoyageEmbeddingProvider`.
+- Verified: full Python suite and Playwright/Gherkin suite both still pass unchanged (9/9 acceptance scenarios, no regressions from the richer corpus), and live queries against the real backend confirmed both new documents retrieve correctly with accurate citations, while a generic autumn-treatment query still correctly retrieves the original oxalic-acid document rather than being confused by the new options.
+
+Human judgment still required:
+
+- FR-004 itself (the actual trade-off-comparison feature) is still unbuilt — this was corpus preparation, not the feature. Needs its own scoping/grilling pass.
+- FR-006 still has no real source content; US jurisdiction still has only one document.

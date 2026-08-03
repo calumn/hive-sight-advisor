@@ -23,7 +23,7 @@ Update this list as things get promoted into an actual slice (move the item out,
 ### Corpus growth
 
 - **Additional jurisdictions.** V1 covers UK and US only; FR-003 explicitly notes EU coverage is deferred and must be modelled at member-state granularity when added, not as a single "EU" jurisdiction.
-- **Deeper source documents per jurisdiction.** More than one document/treatment option per jurisdiction is a prerequisite for FR-004 (trade-off comparison) and FR-006 (conflict detection) to have anything real to work with.
+- **Deeper source documents per jurisdiction.** More than one document/treatment option per jurisdiction is a prerequisite for FR-004 (trade-off comparison) and FR-006 (conflict detection) to have anything real to work with. **Partially done for FR-004**: the UK jurisdiction now has three real treatment-option documents (oxalic acid, Apivar/amitraz, Apiguard/thymol) with genuinely different trade-off attributes (temperature constraints, organic-certification compatibility, treatment duration), sourced from real product/manufacturer pages — enough to unblock a first FR-004 slice for the UK. Still open: the US jurisdiction still has only one document, and FR-006 still has no content, since a genuine real-world disagreement between two authoritative UK sources wasn't found during this research pass (manufacturers/regulators don't tend to publish outright contradictions) — sourcing that remains a separate, harder research task.
 
 ### Phase 2 — The Advisor (explicitly out of scope until Phase 1 is trusted)
 

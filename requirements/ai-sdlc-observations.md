@@ -421,3 +421,17 @@ Human judgment still required:
 
 - FR-004 itself (the actual trade-off-comparison feature) is still unbuilt — this was corpus preparation, not the feature. Needs its own scoping/grilling pass.
 - FR-006 still has no real source content; US jurisdiction still has only one document.
+
+### 2026-08-03 Corpus Management Question: Two Distinct Future Capabilities Identified
+
+Human direction: asked how the corpus (public-domain/licensed documents) should be managed and curated going forward — could a user point the system at a new document, or remove one, and does this need a full admin layer.
+
+AI contribution:
+
+- Recognized the question actually spans two capabilities with very different implications rather than answering as if it were one: internal Corpus Curator tooling (an already-trusted operator, no moderation question) versus an end-user document-suggestion feature (affects every user's answers in that jurisdiction, so raises a genuine trust/review question this project hasn't answered — unlike a Correction, which only affects the submitter's own evaluation evidence). Asked the user to confirm scope rather than assuming either. User chose: both, but scoped as two separate future items.
+- Pointed out the internal-tooling half isn't actually a gap needing urgent attention — it's the deliberate outcome of prior decisions (Ingestion Trigger, Source Supersession And Conflict Detection) that chose manual, script-based curation over building tooling ahead of the pain.
+- Added both as new candidate items in `requirements/roadmap.md`: "Corpus contribution and curation" (Business — end-user suggestion, needs a submission-plus-review-gate trust model, its own future grilling session) and "Corpus management tooling" (Technical — an internal CLI/admin script wrapping the existing repository calls, no trust model needed).
+
+Human judgment still required:
+
+- Neither item is scoped yet — both are roadmap candidates only. Decide which (if either) to pick up next, or continue with FR-004/FR-006.

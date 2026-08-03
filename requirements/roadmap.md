@@ -20,6 +20,10 @@ Update this list as things get promoted into an actual slice (move the item out,
 - **Corpus Curator-facing Correction review view.** Slice 0005 only built the write path (a Beekeeper submitting a Correction). Nothing yet lets anyone read or triage the Corrections that accumulate.
 - **Activate the Correction review gate.** The domain model already reserves `review_pending`/`review_approved`/`review_rejected` statuses exactly for this, per the Correction Trust Level For V1 decision — worth revisiting once there is more than one real user, since the current "every correction is trusted directly" approach was explicitly justified by a population of one.
 
+### Corpus contribution and curation
+
+- **End-user document suggestion.** A Beekeeper points the system at a document they think should be in the corpus. This is a genuinely new requirement, not yet in `requirements.md` — it raises a real trust question this project hasn't answered: who verifies a suggested source is authoritative before it becomes grounding truth shown to every user in that jurisdiction? Unlike a Correction (which only affects the submitter's own evaluation evidence), a bad corpus addition affects everyone's answers. Needs its own scoping/grilling pass on the trust/moderation model before any code — likely a submission-plus-review-gate shape (the Corpus Curator approves before a suggested document goes live), not a direct-to-corpus write.
+
 ### Corpus growth
 
 - **Additional jurisdictions.** V1 covers UK and US only; FR-003 explicitly notes EU coverage is deferred and must be modelled at member-state granularity when added, not as a single "EU" jurisdiction.
@@ -57,6 +61,10 @@ Per the V1 Scope Boundary decision, none of this begins until Phase 1's groundin
 
 - **Durably resolve the stub-vs-real embedding distance-scale mismatch.** Currently solved by giving the stub and real embedding providers separate, environment-configured threshold values (see the Grounding Thresholds Are Environment-Configurable, Not a Single Hardcoded Value decision) — a working fix, but the underlying tension (a crude bag-of-words stub can't track real semantic distance) is still there; a smarter stub or a different testing strategy could remove the need for parallel threshold configs entirely.
 - **Component-level UI tests.** Every UI behaviour built so far (grounding banners, citation attribution, correction flow) is verified only through Playwright/Gherkin end-to-end tests and manual browser passes — there's no lighter-weight component-test layer (e.g. Vitest + React Testing Library) for faster, more targeted UI regression coverage.
+
+### Corpus management tooling
+
+- **Internal Corpus Curator tooling.** Today, adding, retiring, or updating a Corpus Document means hand-editing Python dataclasses in `scripts/seed_slice_0001.py` and re-running the seed script — deliberate, per the existing "manual, Corpus Curator-triggered" ingestion decision, since the corpus is small and there's one real curator. A lightweight CLI (or small admin script) that wraps the same repository calls would remove the need to touch Python/dataclass code for a routine content update, without needing a full web admin UI or any trust/moderation model — this stays an internal, already-trusted operator, distinct from the end-user suggestion item above.
 
 ### Housekeeping
 

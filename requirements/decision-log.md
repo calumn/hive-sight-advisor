@@ -124,6 +124,8 @@ A second, distinct point is flagged rather than solved: local deletion is necess
 
 **Resolved via**: grilling session with Claude, in response to explicit user instruction to plan ahead for compliance rather than defer it entirely.
 
+**Addendum, 2026-08-03 — verified provider terms, not just flagged as unknown**: Checked Anthropic's and Voyage AI's actual current commercial terms rather than leaving this as an open question. Anthropic's API (a commercial product, distinct from consumer Claude) is not trained on by default, with a 30-day retention window for abuse/safety monitoring unless a Zero Data Retention (ZDR) enterprise agreement is arranged, which removes even that. Voyage AI's default differs meaningfully: free-tier data is used for training by default; paid-tier customers can opt into zero-day retention, but it requires an active payment method and org-admin action, not an automatic entitlement. This project's Voyage usage has repeatedly hit the free-tier rate-limit error ("you have not yet added your payment method") throughout this session, confirming it is currently running on the free tier — meaning corpus/query text sent to Voyage so far may be usable for their training under current terms. This is a verified, concrete finding, not a hypothetical: closing it means moving to a paid Voyage plan with the training opt-out explicitly enabled, which is real, unstarted work distinct from anything else in this decision.
+
 ## 2026-07-31 Deployment Platform
 
 **Decision**: Fly.io hosts the first production-like environment — both the Advisor Service and the Postgres/`pgvector` database.

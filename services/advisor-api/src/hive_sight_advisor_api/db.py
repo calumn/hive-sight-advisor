@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import psycopg
+from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import sql
 
 from hive_sight_advisor_api.settings import load_settings
@@ -59,6 +60,14 @@ def apply_migrations(database_url: str) -> None:
             cursor.execute("INSERT INTO schema_migrations (version) VALUES (%s)", (version,))
 
 
+def setup_checkpointer(database_url: str) -> None:
+    # LangGraph's own tables for the Recommend->Suggest->Wait->Resume graph (Slice 0008).
+    # Kept as an explicit step alongside apply_migrations, not automatic at app startup,
+    # matching this project's existing "migrations run explicitly" convention.
+    with PostgresSaver.from_conn_string(database_url) as saver:
+        saver.setup()
+
+
 def reset_database(database_url: str) -> None:
     ensure_database_exists(database_url)
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
@@ -74,10 +83,13 @@ def main() -> None:
     database_url = load_settings().database_url
     if args.command == "migrate":
         apply_migrations(database_url)
+        setup_checkpointer(database_url)
     elif args.command == "migrate-test":
         apply_migrations(test_database_url(database_url))
+        setup_checkpointer(test_database_url(database_url))
     elif args.command == "reset-test":
         reset_database(test_database_url(database_url))
+        setup_checkpointer(test_database_url(database_url))
 
 
 if __name__ == "__main__":

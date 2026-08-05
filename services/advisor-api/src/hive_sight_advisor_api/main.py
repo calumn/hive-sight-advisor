@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from hive_sight_advisor_api.routers import correction, query
+from hive_sight_advisor_api.routers import correction, hivesight_integration, query
 from hive_sight_advisor_api.settings import load_settings
 
 
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
 
     app.include_router(query.router)
     app.include_router(correction.router)
+    app.include_router(hivesight_integration.router)
 
     return app
 

@@ -24,9 +24,9 @@ This document exists so you can verify test coverage without reading any code. E
 
 | Requirement | Description | Proven by | Status |
 |---|---|---|---|
-| FR-009 | Draft a proposed treatment schedule, await human approval | — | ⚪ Deferred — explicitly out of scope for v1 (V1 Scope Boundary decision); not built, nothing to test yet |
-| FR-010 | Record treatment history | — | ⚪ Deferred — same as FR-009 |
-| FR-011 | Optional HiveSight photo-based mite-count integration | — | ⚪ Deferred — same as FR-009 |
+| FR-009 | Draft a proposed treatment schedule, await human approval | `architecture/vertical-slice-0008-agentic-treatment-plan-request.md`'s four signed-off scenarios, proven via `tests/test_hivesight_integration_router.py` (API-level, `TestClient` — no browser, since HiveSight is this flow's only UI). Each test's docstring quotes its exact scenario text. Covers: grounded recommendation + suggestion recorded; unauthorized request rejected; no-grounding honesty preserved for this flow too; completion confirmation resumes and closes the loop | ✅ Covered — for the Advisor's own side only. HiveSight's two real endpoints (accept-suggestion, completion webhook) don't exist yet; this slice proves the Advisor's side against stubs/test-only stand-ins. See `hivesight-advisor-integration-contract` skill for current cross-app status |
+| FR-010 | Record treatment history | — | ⚪ Superseded — this responsibility moved to HiveSight (system-of-record split, `requirements/roadmap.md`, 2026-08-04); nothing to test on the Advisor side |
+| FR-011 | Optional HiveSight photo-based mite-count integration | — | ⚪ Deferred — still not built; widened in scope (inspection *history*, not a single reading) per the FR-009 discussion in `requirements/roadmap.md` |
 
 ## Non-Functional
 

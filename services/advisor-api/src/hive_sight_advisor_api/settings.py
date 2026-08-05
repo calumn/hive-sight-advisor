@@ -11,6 +11,7 @@ class Settings:
     allowed_origins: list[str] | None = None
     grounded_distance_threshold: float = 0.35
     partial_distance_threshold: float = 0.55
+    hivesight_service_key: str = ""
 
 
 def load_settings() -> Settings:
@@ -32,6 +33,7 @@ def load_settings() -> Settings:
         partial_distance_threshold=float(
             os.getenv("ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD", "0.55")
         ),
+        hivesight_service_key=os.getenv("ADVISOR_API_HIVESIGHT_SERVICE_KEY", ""),
     )
 
 

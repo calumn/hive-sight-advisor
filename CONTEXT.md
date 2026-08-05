@@ -80,6 +80,10 @@ _Avoid_: Error when the disagreement is between legitimate authoritative sources
 A named version of the retrieval and generation configuration (embedding model, generation model, prompt template, and corpus snapshot) that produced a given Answer.
 _Avoid_: Model Version without qualification — this parallels HiveSight's Model Version concept but versions a retrieval-and-generation pipeline, not a trained detector.
 
+**Proposed Treatment**:
+The Advisor's own record that it suggested a treatment for a hive (identified by HiveSight's own, opaque hive ID) in response to an inbound request from HiveSight, and whether that suggestion has since been confirmed completed.
+_Avoid_: Treatment history when the point is what HiveSight itself records as actually applied — HiveSight, not the Advisor, is the system of record for that; a Proposed Treatment is only the Advisor's own recommendation trail.
+
 ## Terms Deliberately Not Imported (Yet)
 
 **Review Decision**: HiveSight uses this for human review of annotations, corrections, and model releases. This product's domain model reserves an equivalent concept for Corrections, but it is dormant in version one — every Correction is trusted directly (confirmed via grilling; see `requirements/decision-log.md`, Correction Trust Level For V1). Do not build review-gate UI or enforcement against it yet; the concept exists so it is cheap to activate later, not because it is active now.

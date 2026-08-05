@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 import pytest
 import yaml
@@ -258,3 +259,11 @@ def test_apply_curator_documents_is_a_noop_when_the_yaml_file_is_missing(
     yaml_path = tmp_path / "does_not_exist.yaml"
 
     apply_curator_documents(postgres_connection, _StubEmbeddingProvider(), yaml_path)
+
+
+def test_default_data_file_resolves_to_the_repo_root_regardless_of_cwd() -> None:
+    from hive_sight_advisor_api.corpus_admin import DEFAULT_DATA_FILE
+
+    assert Path(DEFAULT_DATA_FILE).is_absolute()
+    assert Path(DEFAULT_DATA_FILE).name == "curator_added_documents.yaml"
+    assert Path(DEFAULT_DATA_FILE).parent.name == "scripts"

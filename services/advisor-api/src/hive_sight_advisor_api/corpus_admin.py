@@ -16,7 +16,11 @@ from hive_sight_advisor_api.adapters.embedding_voyage import VoyageEmbeddingProv
 from hive_sight_advisor_api.repositories.corpus_repository import CorpusRepository
 from hive_sight_advisor_api.settings import load_settings
 
-DEFAULT_DATA_FILE = "scripts/curator_added_documents.yaml"
+# Anchored to this package's location rather than a bare relative path — a relative
+# default silently resolved against whatever directory the CLI happened to be invoked
+# from, which could write a stray duplicate file instead of updating the single
+# canonical, source-controlled ledger the Corpus Curator CLI Tooling decision depends on.
+DEFAULT_DATA_FILE = Path(__file__).parents[4] / "scripts" / "curator_added_documents.yaml"
 
 
 @dataclass(frozen=True)

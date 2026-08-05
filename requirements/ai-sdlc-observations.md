@@ -572,3 +572,20 @@ Human judgment still required:
 
 - HiveSight's own two endpoints (accept-suggestion, completion webhook) are not built — this slice only proves the Advisor's side against stubs. Real end-to-end integration testing waits on that work landing on HiveSight's side.
 - The service-to-service auth mechanism (static shared secret) is deliberately the lightest option for one known caller; revisit if a second external caller or credential-expiry need ever appears (already named as the upgrade path, not scheduled work).
+
+### 2026-08-05 US Corpus Growth (Api-Bioxal), Plus a Real `corpus_admin` Bug Found By Using It
+
+Human direction: "Add more US corpus content" — lean-process work per the standing preference.
+
+AI contribution:
+
+- Researched a real, verifiable US EPA-registered oxalic acid product (Api-Bioxal — EPA reg. 91266-1-73291) via WebSearch against EPA's own label PDF and a retailer product page, then added it via the existing Corpus Curator CLI (`corpus_admin add-document`) with its AI-assisted review step.
+- The review flagged two real, worthwhile wording issues (an undated exclusivity claim that would silently go stale; organic-certification phrasing less precise than the existing HopGuard entry's wording) — applied both before finalizing, since they were cheap fixes to a legitimate precision concern, not scope creep.
+- In the process of running the CLI from `services/advisor-api/` rather than the repo root, discovered a genuine bug: `corpus_admin.DEFAULT_DATA_FILE` was a bare relative path (`"scripts/curator_added_documents.yaml"`), so it silently wrote a second, stray copy of the ledger relative to cwd instead of updating the single canonical, source-controlled file — directly undermining the "fully reproducible from a fresh clone" guarantee the Corpus Curator CLI Tooling decision was built around. No existing test caught this because every test passes an explicit `data_file` path, never exercising the default.
+- Fixed via TDD: a regression test asserting the default resolves to an absolute, package-anchored path regardless of cwd, then anchored `DEFAULT_DATA_FILE` to `Path(__file__).parents[4]` instead of a bare string.
+- Reconciled the resulting divergence by hand: merged the new entry into the canonical YAML (with the two wording fixes applied), deleted the stray duplicate file, and re-embedded the corrected passage text in the live dev database via Voyage so the DB and the source-controlled ledger describe the exact same content.
+- Verified: full backend suite green (62 passed, 4 skipped) and `ruff` clean throughout.
+
+Human judgment still required:
+
+- FR-006 (source conflict detection) still has no content — no genuine real-world disagreement between two authoritative sources has turned up in either the UK or US research pass.

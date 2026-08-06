@@ -608,3 +608,21 @@ Human judgment still required:
 
 - `MAX_REVISIONS = 3` is an explicit judgment call, not calibrated against any real usage — worth revisiting once there's real negotiation behaviour to observe.
 - The rejection reason is not accumulated across revisions (only the latest is used) — a reasonable default reading of the slice doc's wording, but not something that was separately grilled; worth confirming if it ever produces a confusing revision in practice.
+
+### 2026-08-05 Slice 0010: Voyage Retry With Backoff (Adapter-Level, Not LangGraph)
+
+Human direction: "Scope the retry-with-backoff slice" — following the earlier "what else could LangGraph demonstrate" discussion, which had originally framed this as a LangGraph pattern.
+
+AI contribution:
+
+- Before scoping, flagged a real tension the earlier framing had glossed over: `VoyageEmbeddingProvider` is called from both the plain web-UI query flow and the agentic `TreatmentPlanWorkflow`, so a retry built as a LangGraph node would only protect the newer, less-used path and leave the actual problem (hit for real during threshold calibration, on the plain query path) unfixed. Recommended the adapter-level fix instead, explicitly naming the trade-off (losing a "third LangGraph pattern" for portfolio purposes, in exchange for actually closing the real roadmap item) rather than silently picking one.
+- Grilled five decisions (placement, retryable-vs-not error classification, backoff shape, scope limited to Voyage, test seam), all agreed without pushback.
+- Skipped the Gherkin scenario-signoff step deliberately — this is genuinely internal-only behaviour (the Beekeeper-visible Answer is identical regardless of how many attempts Voyage needed), matching the existing convention's own carve-out for pure internal changes.
+- Implemented in one TDD cycle: an injectable `client` parameter (same constructor-injection seam already used throughout this codebase) plus an injectable `wait` parameter so tests never sleep for real. All three tests (retry-then-succeed, exhaust-and-raise, non-retryable-fails-immediately) passed on the first implementation attempt.
+- `tenacity` was already an implicit transitive dependency (via `langchain-core`, pulled in for Slice 0008's LangGraph work) — promoted to an explicit direct dependency now that this codebase imports it directly, rather than relying on another package's dependency tree to keep providing it.
+- Verified no regressions: full backend suite (75 passed, 4 skipped), `ruff` clean, no changes needed to any caller.
+
+Human judgment still required:
+
+- The backoff numbers (4 attempts, 1–8s exponential with jitter) are a standard, defensible shape, not calibrated against Voyage's actual free-tier rate-limit recovery time — worth revisiting if it proves too short or too long in practice.
+- `ClaudeGenerationProvider` has the same gap (no retry handling) but was deliberately left out of scope, since no real problem has surfaced there yet.

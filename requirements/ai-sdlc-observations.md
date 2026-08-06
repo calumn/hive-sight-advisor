@@ -643,3 +643,21 @@ Human judgment still required:
 
 - Whether to scope and grill the idempotent-request fix as its own vertical slice now, or wait until HiveSight's Slice 0029.5 is closer to real implementation.
 - Whether to change `jurisdiction_id` to a code-based lookup is itself a real API-contract decision (backward compatibility for any future real caller) that deserves its own grilling pass, not a quick patch.
+
+### 2026-08-06 Slice 0011: Treatment Plan Readiness (Closing Four Cross-Repo Review Findings)
+
+Human direction: "can you plan and design a 'Treatment Plan Readiness slice' addressing" the four Advisor-side gaps found in the two HiveSight review-response docs, "and in the design include any contract alterations so I can pass them back to Hive-sight."
+
+AI contribution:
+
+- Grilled four decisions before implementation, each grounded in a direct code check rather than assumption: confirmed `jurisdiction_id` is threaded deeply through internal RAG plumbing (so the fix stays at the API boundary only, translating via a new small `JurisdictionRepository`, not touching `AnswerQueryWorkflow`/`CorpusRepository`); confirmed no existing jurisdiction-discovery endpoint exists anywhere (the actual problem being fixed); worked out that graph-state fields alone can't reliably distinguish "still pending" from "fully completed" for the idempotency fix, so the fix goes through the repository's authoritative status instead.
+- Implemented via TDD in four cycles (repository, workflow idempotency, router contract, closeout). The idempotency fix mirrors `reject_treatment`'s existing peek-before-resume pattern rather than inventing a new mechanism — architectural consistency was itself part of the design, not an afterthought.
+- Treated this as a deliberate breaking change to the request contract (`jurisdiction_id` → `jurisdiction_code`), not an additive/backward-compatible one, since no real caller exists yet and carrying the brittle UUID forward "for compatibility" would help no one. Updated the pre-existing Slice 0008/0009 tests to the new shape rather than leaving two contract versions to reconcile later.
+- The slice doc includes a dedicated "Contract Changes For HiveSight" section with the exact new request/response JSON shapes, written specifically to be copy-pasted into a message back to the HiveSight side, per the user's explicit ask.
+- Closeout updated both review-response docs in place (added "resolved, see Slice 0011" notes at the top rather than rewriting them, preserving the original review as a historical record) and the shared `hivesight-advisor-integration-contract` skill with the real, implemented shapes — plus one still-open item carried forward explicitly (the header-name collision, which is HiveSight's own fix, not resolved by this slice).
+- Verified: full backend suite (85 passed, 4 skipped), `ruff` clean, no regressions to Slice 0008/0009's own behavioural guarantees.
+
+Human judgment still required:
+
+- Whether to actually send the "Contract Changes For HiveSight" section (or the whole slice doc) back to whoever owns the `hive-sight` repo, and in what form (comment, message, doc).
+- The header-name collision flagged in the Slice 0029 review remains genuinely unresolved — it's on HiveSight's side to fix, not something Advisor can close unilaterally.

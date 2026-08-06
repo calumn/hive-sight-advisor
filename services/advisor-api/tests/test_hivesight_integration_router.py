@@ -73,7 +73,7 @@ def test_hivesight_requests_a_treatment_plan_and_the_recommendation_is_grounded(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-42",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "Mite count is high, what treatment should I use?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},
@@ -98,7 +98,7 @@ def test_a_request_without_a_valid_service_credential_is_rejected(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-42",
-                "jurisdiction_id": str(uuid.uuid4()),
+                "jurisdiction_code": "uk",
                 "situational_context": "Mite count is high, what treatment should I use?",
             },
             headers={"x-hivesight-service-key": "wrong-key"},
@@ -128,7 +128,7 @@ def test_no_relevant_guidance_exists_for_the_requested_hives_situation(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-99",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "Should I paint my hive a different colour?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},
@@ -158,7 +158,7 @@ def test_hivesight_confirms_a_suggested_treatment_was_completed(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-7",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "Mite count is high, what treatment should I use?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},

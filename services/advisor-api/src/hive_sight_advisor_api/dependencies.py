@@ -23,6 +23,7 @@ from hive_sight_advisor_api.adapters.treatment_suggestion_stub import (
 )
 from hive_sight_advisor_api.repositories.corpus_repository import CorpusRepository
 from hive_sight_advisor_api.repositories.correction_repository import CorrectionRepository
+from hive_sight_advisor_api.repositories.jurisdiction_repository import JurisdictionRepository
 from hive_sight_advisor_api.repositories.proposed_treatment_repository import (
     ProposedTreatmentRepository,
 )
@@ -70,6 +71,13 @@ def get_correction_repository(connection: DbConnectionDep) -> CorrectionReposito
 
 
 CorrectionRepositoryDep = Annotated[CorrectionRepository, Depends(get_correction_repository)]
+
+
+def get_jurisdiction_repository(connection: DbConnectionDep) -> JurisdictionRepository:
+    return JurisdictionRepository(connection)
+
+
+JurisdictionRepositoryDep = Annotated[JurisdictionRepository, Depends(get_jurisdiction_repository)]
 
 
 def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:

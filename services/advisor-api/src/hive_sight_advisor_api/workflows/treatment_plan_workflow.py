@@ -130,6 +130,21 @@ class TreatmentPlanWorkflow:
 
     def request_treatment_plan(self, hive_id: str, jurisdiction_id: UUID, query_text: str) -> Answer:
         config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
+
+        # Idempotency: a hive with an unresolved (still-suggested) Proposed Treatment
+        # must not get a second, competing one from a repeated request — see
+        # requirements/decision-log.md, "Treatment Plan Readiness Mechanism", point 4.
+        # Status is checked via the repository, not graph-state fields alone, since
+        # state can't reliably distinguish "still pending" from "fully completed."
+        state_before = self._graph.get_state(config)
+        existing_proposed_treatment_id = state_before.values.get("proposed_treatment_id")
+        if existing_proposed_treatment_id is not None:
+            existing = self._proposed_treatment_repository.find_by_id(existing_proposed_treatment_id)
+            if existing is not None and existing.status == "suggested":
+                existing_answer = state_before.values.get("answer")
+                assert existing_answer is not None
+                return existing_answer
+
         result = self._graph.invoke(
             {
                 "hive_id": hive_id,

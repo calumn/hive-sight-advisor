@@ -6,6 +6,8 @@
 
 This slice asks Advisor to confirm six specific things under "HiveSight Advisor Review Questions." Answers below, verified directly against the actual built code (not recalled from memory) — plus one significant gap this review surfaced empirically in Advisor's own implementation, not in HiveSight's design.
 
+**Update, 2026-08-06**: all four Advisor-side gaps flagged below (`jurisdiction_id`, `contract_version`, `answer_id`, the orphaned-suggestion bug) are now resolved — see `architecture/vertical-slice-0011-treatment-plan-readiness.md`. The contract shapes quoted below are now stale; the current shapes are in that slice doc's "Contract Changes For HiveSight" section and the `hivesight-advisor-integration-contract` skill.
+
 ## First, a confirmation worth stating plainly
 
 Slice 0029.5's design has HiveSight remain the sole caller into Advisor (`HiveSightAdvisorTreatmentPlanAdapter` calls `POST /integrations/hivesight/treatment-plans`; Advisor never calls back into HiveSight; no notification on accept/decline). This is exactly the approach recommended in the Slice 0029 review response — good to see it adopted, and it means the architectural-independence concern from that review is settled.

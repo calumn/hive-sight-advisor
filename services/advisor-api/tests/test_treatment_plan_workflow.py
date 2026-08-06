@@ -326,3 +326,68 @@ def test_reject_treatment_when_the_revision_itself_is_ungrounded(
     assert outcome.answer.grounding_status == "ungrounded"
     assert outcome.revision_exhausted is False
     assert proposed_treatment_repository.find_latest_suggested_by_hive("hivesight-hive-12") is None
+
+
+def test_repeating_a_request_while_a_suggestion_is_still_pending_returns_the_same_suggestion(
+    postgres_connection, checkpointer
+) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        _seed_jurisdiction_with_passage(cursor, jurisdiction_id)
+    postgres_connection.commit()
+
+    workflow, proposed_treatment_repository = _build_workflow(postgres_connection, checkpointer)
+    first = workflow.request_treatment_plan(
+        hive_id="hivesight-hive-20",
+        jurisdiction_id=jurisdiction_id,
+        query_text="Mite count is high, what treatment should I use?",
+    )
+    first_proposed = proposed_treatment_repository.find_latest_suggested_by_hive("hivesight-hive-20")
+    assert first_proposed is not None
+
+    second = workflow.request_treatment_plan(
+        hive_id="hivesight-hive-20",
+        jurisdiction_id=jurisdiction_id,
+        query_text="Mite count is high, what treatment should I use?",
+    )
+
+    assert second.id == first.id
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM proposed_treatments WHERE hive_id = %s", ("hivesight-hive-20",)
+        )
+        (count,) = cursor.fetchone()
+    assert count == 1
+
+
+def test_requesting_again_after_a_suggestion_was_completed_starts_a_fresh_episode(
+    postgres_connection, checkpointer
+) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        _seed_jurisdiction_with_passage(cursor, jurisdiction_id)
+    postgres_connection.commit()
+
+    workflow, _proposed_treatment_repository = _build_workflow(postgres_connection, checkpointer)
+    first = workflow.request_treatment_plan(
+        hive_id="hivesight-hive-21",
+        jurisdiction_id=jurisdiction_id,
+        query_text="Mite count is high, what treatment should I use?",
+    )
+    workflow.confirm_completed("hivesight-hive-21")
+
+    second = workflow.request_treatment_plan(
+        hive_id="hivesight-hive-21",
+        jurisdiction_id=jurisdiction_id,
+        query_text="Mite count is high again, what treatment should I use this time?",
+    )
+
+    assert second.id != first.id
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM proposed_treatments WHERE hive_id = %s", ("hivesight-hive-21",)
+        )
+        (count,) = cursor.fetchone()
+    assert count == 2

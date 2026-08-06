@@ -6,6 +6,8 @@
 
 HiveSight's Slice 0029 doc asked four direct questions of the Advisor side under "Open Questions For Advisor Review." Answers below, plus a recommended approach for how the two systems' calls should actually compose — the doc doesn't settle this, and it changes what (if anything) Advisor needs to build.
 
+**Update, 2026-08-06**: the `contract_version` field flagged below as "worth adopting" is now built — see `architecture/vertical-slice-0011-treatment-plan-readiness.md`.
+
 ## Answers to the four questions
 
 **1. Does `advisor_varroa_context_v1` carry enough aggregate Varroa evidence to decide whether a treatment-plan request could later be grounded?**

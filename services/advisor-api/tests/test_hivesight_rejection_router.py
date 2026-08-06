@@ -78,7 +78,7 @@ def test_hivesight_rejects_a_suggested_treatment_and_receives_a_revised_recommen
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-1",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "Mite count is high, what treatment should I use?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},
@@ -114,7 +114,7 @@ def test_repeated_rejection_eventually_exhausts_the_revision_limit(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-2",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "Mite count is high, what treatment should I use?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},
@@ -173,7 +173,7 @@ def test_a_revised_recommendation_itself_has_no_grounded_answer(
             "/integrations/hivesight/treatment-plans",
             json={
                 "hive_id": "hivesight-hive-3",
-                "jurisdiction_id": str(jurisdiction_id),
+                "jurisdiction_code": "uk",
                 "situational_context": "How do I treat varroa with oxalic acid vaporisation?",
             },
             headers={"x-hivesight-service-key": SERVICE_KEY},

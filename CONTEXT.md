@@ -81,7 +81,7 @@ A named version of the retrieval and generation configuration (embedding model, 
 _Avoid_: Model Version without qualification — this parallels HiveSight's Model Version concept but versions a retrieval-and-generation pipeline, not a trained detector.
 
 **Proposed Treatment**:
-The Advisor's own record that it suggested a treatment for a hive (identified by HiveSight's own, opaque hive ID) in response to an inbound request from HiveSight, and whether that suggestion has since been confirmed completed.
+The Advisor's own record that it suggested a treatment for a hive (identified by HiveSight's own, opaque hive ID) in response to an inbound request from HiveSight. Its status is one of suggested (awaiting a response), completed (confirmed applied), or rejected (superseded by a revised Proposed Treatment produced after HiveSight rejected it with a reason — see Slice 0009's reject-and-revise loop).
 _Avoid_: Treatment history when the point is what HiveSight itself records as actually applied — HiveSight, not the Advisor, is the system of record for that; a Proposed Treatment is only the Advisor's own recommendation trail.
 
 ## Terms Deliberately Not Imported (Yet)

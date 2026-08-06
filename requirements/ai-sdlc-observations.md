@@ -626,3 +626,20 @@ Human judgment still required:
 
 - The backoff numbers (4 attempts, 1–8s exponential with jitter) are a standard, defensible shape, not calibrated against Voyage's actual free-tier rate-limit recovery time — worth revisiting if it proves too short or too long in practice.
 - `ClaudeGenerationProvider` has the same gap (no retry handling) but was deliberately left out of scope, since no real problem has surfaced there yet.
+
+### 2026-08-06 Cross-Repo Review Of HiveSight's Slice 0029.5 Found A Real Advisor-Side Bug
+
+Human direction: "please review and comment in a durable response doc" for HiveSight's Slice 0029.5 (Advisor Treatment Recommendation Intake) design.
+
+AI contribution:
+
+- Rather than answering HiveSight's six review questions from memory of how Advisor's endpoints work, verified each one directly against the current code (`routers/hivesight_integration.py`, `adapters/generation_claude.py`) before answering — confirmed the exact request/response shapes, confirmed no inline citation markers exist in answer text (a real rendering-assumption gap HiveSight's UI work would otherwise have hit later), and confirmed no jurisdiction-discovery endpoint exists.
+- One question (whether a second top-level treatment-plan request while an earlier one sits unresolved causes a problem) wasn't answerable from reading code alone, since it depends on LangGraph's actual re-invoke behaviour on an existing thread — not something to reason about from first principles with confidence. Built a small throwaway script against the real Postgres-backed checkpointer to test it directly: confirmed a second `request_treatment_plan` call for the same `hive_id` silently creates a second, unlinked `Proposed Treatment` row and permanently orphans the first one (still `suggested`, but unreachable via the existing lookup, forever). This is a real bug in Advisor's own Slice 0008/0009 implementation, not a HiveSight design question — found only because Slice 0029.5's explicit choice ("does not notify Advisor when a recommendation is accepted or declined... belongs to a later slice") makes the scenario that triggers it a near-certainty once the integration is used for real, rather than an edge case.
+- Recommended a fix direction (idempotent-per-hive request handling) that mirrors the idempotency HiveSight had already independently chosen for its own side, rather than inventing a new pattern — consistency across the two systems was itself part of the recommendation, not just correctness.
+- Flagged the `jurisdiction_id`-as-raw-UUID contract weakness (no discovery endpoint exists, confirmed by checking for one) as a second, independent finding — this one was catchable by reading code plus reasoning about what a cross-service caller could actually know, not something requiring empirical testing.
+- Wrote the response as a durable doc (`requirements/hivesight-slice-0029-5-review-response.md`) rather than only a chat reply, consistent with the pattern established for the Slice 0029 review, and logged the two real findings as candidate follow-up slices in `requirements/roadmap.md` rather than fixing them inline as part of a review task.
+
+Human judgment still required:
+
+- Whether to scope and grill the idempotent-request fix as its own vertical slice now, or wait until HiveSight's Slice 0029.5 is closer to real implementation.
+- Whether to change `jurisdiction_id` to a code-based lookup is itself a real API-contract decision (backward compatibility for any future real caller) that deserves its own grilling pass, not a quick patch.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, TypedDict
 from uuid import UUID
 
@@ -21,17 +22,31 @@ from hive_sight_advisor_api.workflows.answer_query import Answer, AnswerQueryWor
 # and requirements/decision-log.md, "Agentic Treatment Plan Request Mechanism".
 SYSTEM_WORKSPACE_ID = UUID("00000000-0000-0000-0000-000000000001")
 
+# 3 revisions on top of the original suggestion (4 suggestions total, ever) — see
+# requirements/decision-log.md, "Reject-And-Revise Treatment Plan Mechanism", point 8.
+MAX_REVISIONS = 3
+
 
 class TreatmentPlanState(TypedDict):
     hive_id: str
     jurisdiction_id: UUID
     query_text: str
+    rejection_reason: str | None
     answer: Answer | None
     proposed_treatment_id: UUID | None
+    revision_count: int
+    last_action: str | None
+
+
+@dataclass(frozen=True)
+class RejectionOutcome:
+    answer: Answer
+    revision_exhausted: bool
 
 
 class TreatmentPlanWorkflow:
-    """Recommend -> Suggest -> Wait -> Resume, per Slice 0008.
+    """Recommend -> Suggest -> Wait -> Resume, per Slice 0008; Slice 0009 adds a real
+    cycle back from Wait to Recommend on rejection, capped at MAX_REVISIONS.
 
     The suspend in `_wait_and_resume` is only real because `checkpointer` is expected
     to be a Postgres-backed saver, not an in-memory one — see
@@ -62,13 +77,24 @@ class TreatmentPlanWorkflow:
             {"suggest": "suggest", END: END},
         )
         graph.add_edge("suggest", "wait_and_resume")
-        graph.add_edge("wait_and_resume", END)
+        graph.add_conditional_edges(
+            "wait_and_resume",
+            lambda state: "recommend" if state.get("last_action") == "reject" else END,
+            {"recommend": "recommend", END: END},
+        )
         return graph
 
     def _recommend(self, state: TreatmentPlanState) -> dict[str, Any]:
+        query_text = state["query_text"]
+        reason = state.get("rejection_reason")
+        if reason:
+            query_text = (
+                f"{query_text}\n\nA previously suggested treatment was rejected because: "
+                f"{reason}. Suggest an alternative that avoids this."
+            )
         answer = self._answer_query_workflow.answer_query(
             workspace_id=SYSTEM_WORKSPACE_ID,
-            query_text=state["query_text"],
+            query_text=query_text,
             jurisdiction_id=state["jurisdiction_id"],
         )
         return {"answer": answer}
@@ -81,15 +107,23 @@ class TreatmentPlanWorkflow:
             hive_id=state["hive_id"],
             jurisdiction_id=state["jurisdiction_id"],
             answer_id=answer.id,
+            supersedes_proposed_treatment_id=state.get("proposed_treatment_id"),
         )
         return {"proposed_treatment_id": proposed_treatment.id}
 
     def _wait_and_resume(self, state: TreatmentPlanState) -> dict[str, Any]:
-        interrupt("awaiting-hivesight-completion")
+        resume_value = interrupt("awaiting-hivesight-response")
         proposed_treatment_id = state["proposed_treatment_id"]
         assert proposed_treatment_id is not None
-        self._proposed_treatment_repository.mark_completed(proposed_treatment_id)
-        return {}
+        if resume_value["action"] == "accept":
+            self._proposed_treatment_repository.mark_completed(proposed_treatment_id)
+            return {"last_action": "accept"}
+        self._proposed_treatment_repository.mark_rejected(proposed_treatment_id)
+        return {
+            "last_action": "reject",
+            "rejection_reason": resume_value["reason"],
+            "revision_count": state.get("revision_count", 0) + 1,
+        }
 
     def _thread_id(self, hive_id: str) -> str:
         return f"treatment-plan-{hive_id}"
@@ -101,8 +135,11 @@ class TreatmentPlanWorkflow:
                 "hive_id": hive_id,
                 "jurisdiction_id": jurisdiction_id,
                 "query_text": query_text,
+                "rejection_reason": None,
                 "answer": None,
                 "proposed_treatment_id": None,
+                "revision_count": 0,
+                "last_action": None,
             },
             config=config,
         )
@@ -114,7 +151,25 @@ class TreatmentPlanWorkflow:
         config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
         state_before = self._graph.get_state(config)
         proposed_treatment_id = state_before.values.get("proposed_treatment_id")
-        self._graph.invoke(Command(resume=True), config=config)
+        self._graph.invoke(Command(resume={"action": "accept"}), config=config)
         if proposed_treatment_id is None:
             return None
         return self._proposed_treatment_repository.find_by_id(proposed_treatment_id)
+
+    def reject_treatment(self, hive_id: str, reason: str) -> RejectionOutcome | None:
+        config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
+        state_before = self._graph.get_state(config)
+        proposed_treatment_id = state_before.values.get("proposed_treatment_id")
+        if proposed_treatment_id is None:
+            return None
+
+        revision_count = state_before.values.get("revision_count", 0)
+        if revision_count >= MAX_REVISIONS:
+            answer = state_before.values.get("answer")
+            assert answer is not None
+            return RejectionOutcome(answer=answer, revision_exhausted=True)
+
+        result = self._graph.invoke(Command(resume={"action": "reject", "reason": reason}), config=config)
+        answer = result["answer"]
+        assert answer is not None
+        return RejectionOutcome(answer=answer, revision_exhausted=False)

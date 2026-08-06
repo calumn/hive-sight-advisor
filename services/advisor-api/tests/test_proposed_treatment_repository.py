@@ -118,3 +118,46 @@ def test_find_by_id_returns_none_when_not_found(postgres_connection) -> None:
     found = repository.find_by_id(uuid.uuid4())
 
     assert found is None
+
+
+def test_mark_rejected_transitions_status(postgres_connection) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        answer_id = _seed_answer(cursor, jurisdiction_id=jurisdiction_id)
+    postgres_connection.commit()
+
+    repository = ProposedTreatmentRepository(postgres_connection)
+    proposed_treatment = repository.save(
+        hive_id="hivesight-hive-42",
+        jurisdiction_id=jurisdiction_id,
+        answer_id=answer_id,
+    )
+
+    rejected = repository.mark_rejected(proposed_treatment.id)
+
+    assert rejected is not None
+    assert rejected.status == "rejected"
+
+
+def test_save_records_what_it_supersedes(postgres_connection) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        answer_id = _seed_answer(cursor, jurisdiction_id=jurisdiction_id)
+    postgres_connection.commit()
+
+    repository = ProposedTreatmentRepository(postgres_connection)
+    original = repository.save(
+        hive_id="hivesight-hive-42",
+        jurisdiction_id=jurisdiction_id,
+        answer_id=answer_id,
+    )
+    repository.mark_rejected(original.id)
+
+    revision = repository.save(
+        hive_id="hivesight-hive-42",
+        jurisdiction_id=jurisdiction_id,
+        answer_id=answer_id,
+        supersedes_proposed_treatment_id=original.id,
+    )
+
+    assert revision.supersedes_proposed_treatment_id == original.id

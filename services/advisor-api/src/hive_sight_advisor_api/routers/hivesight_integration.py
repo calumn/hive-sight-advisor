@@ -71,3 +71,46 @@ def confirm_treatment_completed(
             status_code=404, detail="No suggested treatment awaiting completion for that hive."
         )
     return ProposedTreatmentResponse(id=completed.id, status=completed.status)
+
+
+class TreatmentRejectionRequest(BaseModel):
+    hive_id: str
+    reason: str
+
+
+class TreatmentRejectionResponse(BaseModel):
+    text: str
+    grounding_status: str
+    citations: list[CitationResponse]
+    revision_exhausted: bool
+
+
+@router.post("/treatment-plans/rejections", response_model=TreatmentRejectionResponse)
+def reject_treatment(
+    request: TreatmentRejectionRequest,
+    _hivesight_service_credential: HiveSightServiceAuthDep,
+    workflow: TreatmentPlanWorkflowDep,
+) -> TreatmentRejectionResponse:
+    outcome = workflow.reject_treatment(request.hive_id, reason=request.reason)
+    if outcome is None:
+        raise HTTPException(
+            status_code=404, detail="No suggested treatment awaiting completion for that hive."
+        )
+    answer = outcome.answer
+    return TreatmentRejectionResponse(
+        text=answer.text,
+        grounding_status=answer.grounding_status,
+        citations=[
+            CitationResponse(
+                passage_id=citation.passage_id,
+                document_title=citation.document_title,
+                document_source=citation.document_source,
+                document_source_url=citation.document_source_url,
+                document_licence_terms=citation.document_licence_terms,
+                is_superseded=citation.is_superseded,
+                superseded_by_document_title=citation.superseded_by_document_title,
+            )
+            for citation in answer.citations
+        ],
+        revision_exhausted=outcome.revision_exhausted,
+    )

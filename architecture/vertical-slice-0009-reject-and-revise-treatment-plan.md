@@ -97,14 +97,20 @@ Signed off verbatim during scoping and the follow-up grilling pass (2026-08-05);
 
 ## Acceptance Criteria
 
-- [ ] All four signed-off Gherkin scenarios pass via API-level tests (`TestClient`), no browser involved.
-- [ ] A rejection below the cap produces a new `proposed_treatments` row (`suggested`) pointing at the rejected one (`rejected`) via `supersedes_proposed_treatment_id` — never an in-place mutation of the rejected row's own content.
-- [ ] The revision cap is enforced by a real loop in the graph (a genuine cycle, verified by testing repeated rejections), not by an artificial early exit.
-- [ ] Reaching the cap does not resume the graph — verified by confirming the last `Proposed Treatment` is still `confirm_completed`-able after an exhausted rejection response.
-- [ ] An ungrounded revision records no `Proposed Treatment` and reports `revision_exhausted: false`, distinct from both a successful revision and cap exhaustion.
-- [ ] `requirements/decision-log.md` gains an entry covering all ten grilled decisions (the original six, plus the four follow-up points: exhaustion leaves the last suggestion acceptable, the 1-original-plus-3-revisions cap semantics, peek-before-resume mechanics, and the ungrounded-revision outcome).
-- [ ] `requirements/traceability.md`'s FR-009 row is updated to include this slice's scenarios.
-- [ ] `CONTEXT.md`'s `Proposed Treatment` entry is updated to note that a suggestion can now be superseded by a revised one, not only completed.
+- [x] All four signed-off Gherkin scenarios pass via API-level tests (`TestClient`), no browser involved. See `tests/test_hivesight_rejection_router.py`.
+- [x] A rejection below the cap produces a new `proposed_treatments` row (`suggested`) pointing at the rejected one (`rejected`) via `supersedes_proposed_treatment_id` — never an in-place mutation of the rejected row's own content.
+- [x] The revision cap is enforced by a real loop in the graph (a genuine cycle, verified by testing repeated rejections), not by an artificial early exit.
+- [x] Reaching the cap does not resume the graph — verified by confirming the last `Proposed Treatment` is still `confirm_completed`-able after an exhausted rejection response. See `test_reject_treatment_exhausts_after_max_revisions_and_preserves_the_last_suggestion`.
+- [x] An ungrounded revision records no `Proposed Treatment` and reports `revision_exhausted: false`, distinct from both a successful revision and cap exhaustion.
+- [x] `requirements/decision-log.md` gains an entry covering all ten grilled decisions (the original six, plus the four follow-up points: exhaustion leaves the last suggestion acceptable, the 1-original-plus-3-revisions cap semantics, peek-before-resume mechanics, and the ungrounded-revision outcome).
+- [x] `requirements/traceability.md`'s FR-009 row is updated to include this slice's scenarios.
+- [x] `CONTEXT.md`'s `Proposed Treatment` entry is updated to note that a suggestion can now be superseded by a revised one, not only completed.
+
+## Implementation Notes
+
+- `_wait_and_resume` now branches on the resume payload's `action` field (`{"action": "accept"}` vs `{"action": "reject", "reason": ...}`), routing conditionally back to `recommend` only on reject. `confirm_completed`'s existing resume call was updated from the old bare `Command(resume=True)` to the new `{"action": "accept"}` shape — a small, required change to Slice 0008's code, not a new design decision.
+- The rejection reason is *not* accumulated across revisions — each `_recommend` call appends only the latest rejection reason to the original, fixed `query_text`, not a running history of every past reason. This wasn't separately grilled; it's the natural reading of the slice doc's own wording ("the rejection reason appended to the original query text," singular) and keeps the prompt from growing unboundedly across revisions.
+- `supersedes_proposed_treatment_id` for a new suggestion is simply whatever `proposed_treatment_id` was already in graph state before `_suggest` overwrites it — no separate tracking field was needed, since state naturally still holds the just-rejected id at exactly the point `_suggest` runs.
 
 ## Open Questions
 

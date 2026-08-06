@@ -589,3 +589,22 @@ AI contribution:
 Human judgment still required:
 
 - FR-006 (source conflict detection) still has no content — no genuine real-world disagreement between two authoritative sources has turned up in either the UK or US research pass.
+
+### 2026-08-05 Slice 0009: Reject-And-Revise Loop (First Genuine Cycle In A LangGraph)
+
+Human direction: "Scope the reject-and-revise loop" — then, before implementation, "grill me first," explicitly invoking the `productivity-grilling` skill on the already-scoped design rather than proceeding straight to TDD.
+
+AI contribution:
+
+- Initial scoping grilled six decisions as usual (endpoint shape, reason-feeding mechanism, revision cap, exhaustion behaviour, append-only persistence, re-triggering `Suggest` per revision), then drafted and got sign-off on three Gherkin scenarios.
+- The user's "grill me first" request was treated as its own distinct checkpoint — a second grilling pass on the already-agreed design, using the `productivity-grilling` skill's one-question-at-a-time-with-a-recommendation format, before any implementation began. This surfaced four real gaps the first pass had missed: whether hitting the revision cap should end the episode entirely (it shouldn't — the last suggestion must stay acceptable) or foreclose only further revision; an exact off-by-one in what "cap at 3" means (3 revisions on top of the original, not 3 suggestions total); a load-bearing mechanical consequence of the first point — a rejection at the cap can't be allowed to actually resume the graph, since LangGraph's interrupt is a one-shot consumption with no "un-pause," so the endpoint has to peek at graph state before deciding whether to resume at all; and a fourth Gherkin scenario for what happens when a *revision itself* comes back ungrounded, which none of the original three scenarios covered.
+- This validates deferring TDD until after a design is genuinely pressure-tested, not just agreed to on the first pass — three of the four gaps found were exactly the kind of edge case that would otherwise have surfaced mid-implementation or, worse, shipped silently wrong (a rejected-but-still-should-be-acceptable suggestion being lost forever is a real usability bug, not a cosmetic one).
+- Implemented via TDD in four cycles: repository (`mark_rejected`, `save(supersedes_proposed_treatment_id=...)`), the graph itself (`_wait_and_resume` now branches on an `action` field and conditionally loops back to `recommend`), the router endpoint, and closeout.
+- One test-tuning discovery along the way, not a production bug: the existing shared test fixture seeds passages with an all-zero embedding placeholder, which pgvector's cosine distance treats as trivially close to any query — fine for the "always grounded" tests that had relied on it, but unable to ever produce a genuine ungrounded result. Built a second fixture that actually embeds the passage text via the stub provider for the one test that needed real distance behaviour, rather than weakening the assertion or forcing the shared fixture to change (which risked destabilizing every other test depending on its current behaviour).
+- The exhaustion test is the one that actually proves the grilling's key finding: it drives 4 real rejections through the workflow, then calls `confirm_completed` on what should still be the last (3rd-revision) suggestion — if the peek-before-resume mechanic were wrong, this test would fail, not just look plausible.
+- Full backend suite green throughout (72 passed, 4 skipped), `ruff` clean. Closeout: decision-log gained a 10-point entry (6 original + 4 follow-up), traceability's FR-009 row now covers both slices' scenarios, `CONTEXT.md`'s `Proposed Treatment` term already anticipated the rejected status from scoping, and the shared `hivesight-advisor-integration-contract` skill gained a fourth contract row for the new rejection endpoint.
+
+Human judgment still required:
+
+- `MAX_REVISIONS = 3` is an explicit judgment call, not calibrated against any real usage — worth revisiting once there's real negotiation behaviour to observe.
+- The rejection reason is not accumulated across revisions (only the latest is used) — a reasonable default reading of the slice doc's wording, but not something that was separately grilled; worth confirming if it ever produces a confusing revision in practice.

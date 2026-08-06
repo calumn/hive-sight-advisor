@@ -661,3 +661,21 @@ Human judgment still required:
 
 - Whether to actually send the "Contract Changes For HiveSight" section (or the whole slice doc) back to whoever owns the `hive-sight` repo, and in what form (comment, message, doc).
 - The header-name collision flagged in the Slice 0029 review remains genuinely unresolved — it's on HiveSight's side to fix, not something Advisor can close unilaterally.
+
+### 2026-08-06 Slice 0030 Review: First Real Use Of The New Cross-Project Review Skill
+
+Human direction: pasted HiveSight's Slice 0030 (Dual-Seam Acceptance Specification Pilot) alignment doc directly into chat, following the earlier "warn HiveSight" exchange — this was HiveSight's session responding in kind, having picked up the newly-shared skills.
+
+AI contribution:
+
+- Applied `sdlc-architecture-cross-project-contract-review` (written earlier this session) for the first time on an inbound proposal, rather than improvising a fresh review approach: pulled the shared skills repo first to see HiveSight's actual already-pushed skill edits (not just the summary doc), verified they were appropriately scoped (generic content in the generic skill, HiveSight specifics in the HiveSight-specific one) before commenting.
+- Verified Advisor's own current state directly (grep for `pytest_bdd` usage, current router endpoints, repository lookup methods) rather than answering from memory of having built Slice 0011 minutes earlier — confirmed no pytest-bdd wiring exists and no recommendation-history endpoint exists, both directly relevant to the alignment questions asked.
+- Found a structural mismatch the proposal itself didn't address: HiveSight's proven pattern is same-repo/two-clients (one `.feature` file, two bindings, both owned by HiveSight); what's being proposed for the Advisor boundary is two independently-versioned repos with no shared client — a materially different, harder problem with no established solution for where a "shared" file would actually live without reintroducing drift. Recommended prose-sharing in the living contract skill instead of file-sharing, rather than either rejecting the pattern outright or adopting it uncritically.
+- Caught a real scope tension between the incoming doc and HiveSight's own earlier Slice 0029.5 design (which explicitly chose not to call Advisor's completion/rejection endpoints) — the new doc's "beekeeper accepts/declines" bullet implies the opposite. Flagged as an open question rather than assuming either reading.
+- Per the review skill's own rule, made no code changes and did not update the shared living contract skill — this review didn't result in any new implemented behaviour, only a scoping response.
+
+Human judgment still required:
+
+- Whether HiveSight actually wants Advisor's recommendation-history endpoint, or whether HiveSight's own snapshotting already covers the audit need.
+- The accept/decline routing question above.
+- Whether the prose-in-shared-skill recommendation satisfies what HiveSight was actually after, or whether they'll push back toward the file-sharing approach once a third capability makes the same-repo pattern more attractive to extend.

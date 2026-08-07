@@ -12,6 +12,8 @@ class Settings:
     grounded_distance_threshold: float = 0.35
     partial_distance_threshold: float = 0.55
     hivesight_service_key: str = ""
+    guest_rate_limit: int = 10
+    guest_rate_limit_window_seconds: float = 3600.0
 
 
 def load_settings() -> Settings:
@@ -34,6 +36,10 @@ def load_settings() -> Settings:
             os.getenv("ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD", "0.55")
         ),
         hivesight_service_key=os.getenv("ADVISOR_API_HIVESIGHT_SERVICE_KEY", ""),
+        guest_rate_limit=int(os.getenv("ADVISOR_API_GUEST_RATE_LIMIT", "10")),
+        guest_rate_limit_window_seconds=float(
+            os.getenv("ADVISOR_API_GUEST_RATE_LIMIT_WINDOW_SECONDS", "3600")
+        ),
     )
 
 

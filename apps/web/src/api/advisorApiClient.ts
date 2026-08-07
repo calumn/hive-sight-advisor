@@ -25,24 +25,18 @@ export type Correction = {
 const advisorApiUrl = import.meta.env.VITE_ADVISOR_API_URL ?? "http://localhost:8000";
 
 export async function submitQuery({
-  devUserId,
-  workspaceId,
   jurisdictionId,
   text
 }: {
-  devUserId: string;
-  workspaceId: string;
   jurisdictionId: string;
   text: string;
 }): Promise<Answer> {
   const response = await fetch(`${advisorApiUrl}/queries`, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
-      "x-dev-user-id": devUserId
+      "content-type": "application/json"
     },
     body: JSON.stringify({
-      workspace_id: workspaceId,
       jurisdiction_id: jurisdictionId,
       text
     })
@@ -97,8 +91,12 @@ async function ensureOk(response: Response): Promise<void> {
   let message = `Advisor API request failed: ${response.status}`;
   try {
     const value = await response.json();
-    if (isRecord(value) && typeof value.detail === "string") {
-      message = value.detail;
+    if (isRecord(value)) {
+      if (typeof value.detail === "string") {
+        message = value.detail;
+      } else if (isRecord(value.detail) && typeof value.detail.message === "string") {
+        message = value.detail.message;
+      }
     }
   } catch {
     // Response body wasn't JSON; fall back to the generic message above.

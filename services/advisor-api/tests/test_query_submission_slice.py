@@ -2,30 +2,36 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from hive_sight_advisor_api.dependencies import get_db_connection
+from hive_sight_advisor_api.dependencies import get_db_connection, get_rate_limiter
+from hive_sight_advisor_api.guest import GUEST_MEMBERSHIP_ID, GUEST_USER_ID, GUEST_WORKSPACE_ID
 from hive_sight_advisor_api.main import app
+from hive_sight_advisor_api.rate_limiter import InMemoryRateLimiter
 
 
-def test_submit_query_with_valid_membership_returns_grounded_answer(postgres_connection) -> None:
+def _seed_guest_workspace(cursor) -> None:
+    cursor.execute("INSERT INTO users (id) VALUES (%s)", (GUEST_USER_ID,))
+    cursor.execute("INSERT INTO workspaces (id) VALUES (%s)", (GUEST_WORKSPACE_ID,))
+    cursor.execute(
+        """
+        INSERT INTO workspace_memberships (id, user_id, workspace_id, role, status)
+        VALUES (%s, %s, %s, 'owner', 'active')
+        """,
+        (GUEST_MEMBERSHIP_ID, GUEST_USER_ID, GUEST_WORKSPACE_ID),
+    )
+
+
+def test_submit_query_as_a_guest_returns_a_grounded_answer_with_no_auth_header(
+    postgres_connection,
+) -> None:
     app.dependency_overrides[get_db_connection] = lambda: postgres_connection
     try:
-        user_id = uuid.uuid4()
-        workspace_id = uuid.uuid4()
         jurisdiction_id = uuid.uuid4()
         corpus_document_id = uuid.uuid4()
         passage_id = uuid.uuid4()
         embedding = [0.0] * 1024
 
         with postgres_connection.cursor() as cursor:
-            cursor.execute("INSERT INTO users (id) VALUES (%s)", (user_id,))
-            cursor.execute("INSERT INTO workspaces (id) VALUES (%s)", (workspace_id,))
-            cursor.execute(
-                """
-                INSERT INTO workspace_memberships (id, user_id, workspace_id, role, status)
-                VALUES (%s, %s, %s, 'owner', 'active')
-                """,
-                (uuid.uuid4(), user_id, workspace_id),
-            )
+            _seed_guest_workspace(cursor)
             cursor.execute(
                 "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
                 (jurisdiction_id, "uk", "United Kingdom"),
@@ -56,12 +62,7 @@ def test_submit_query_with_valid_membership_returns_grounded_answer(postgres_con
         client = TestClient(app)
         response = client.post(
             "/queries",
-            json={
-                "workspace_id": str(workspace_id),
-                "jurisdiction_id": str(jurisdiction_id),
-                "text": "How do I treat varroa?",
-            },
-            headers={"x-dev-user-id": str(user_id)},
+            json={"jurisdiction_id": str(jurisdiction_id), "text": "How do I treat varroa?"},
         )
 
         assert response.status_code == 200
@@ -83,25 +84,33 @@ def test_submit_query_with_valid_membership_returns_grounded_answer(postgres_con
         app.dependency_overrides.clear()
 
 
-def test_submit_query_without_membership_is_rejected(postgres_connection) -> None:
+def test_submit_query_beyond_the_guest_rate_limit_returns_429(postgres_connection) -> None:
+    limiter = InMemoryRateLimiter(limit=1, window_seconds=3600)
     app.dependency_overrides[get_db_connection] = lambda: postgres_connection
+    app.dependency_overrides[get_rate_limiter] = lambda: limiter
     try:
-        workspace_id = uuid.uuid4()
+        jurisdiction_id = uuid.uuid4()
         with postgres_connection.cursor() as cursor:
-            cursor.execute("INSERT INTO workspaces (id) VALUES (%s)", (workspace_id,))
+            _seed_guest_workspace(cursor)
+            cursor.execute(
+                "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+                (jurisdiction_id, "uk", "United Kingdom"),
+            )
         postgres_connection.commit()
 
         client = TestClient(app)
-        response = client.post(
+        first = client.post(
             "/queries",
-            json={
-                "workspace_id": str(workspace_id),
-                "jurisdiction_id": str(uuid.uuid4()),
-                "text": "How do I treat varroa?",
-            },
-            headers={"x-dev-user-id": str(uuid.uuid4())},
+            json={"jurisdiction_id": str(jurisdiction_id), "text": "How do I treat varroa?"},
+        )
+        assert first.status_code == 200
+
+        second = client.post(
+            "/queries",
+            json={"jurisdiction_id": str(jurisdiction_id), "text": "How do I treat varroa?"},
         )
 
-        assert response.status_code == 403
+        assert second.status_code == 429
+        assert second.json()["detail"]["reason"] == "guest_rate_limit_exceeded"
     finally:
         app.dependency_overrides.clear()

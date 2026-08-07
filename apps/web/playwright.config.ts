@@ -38,7 +38,14 @@ export default defineConfig({
         // than real Voyage embeddings, so the acceptance suite needs its own
         // stub-calibrated thresholds. See requirements/decision-log.md, FR-008.
         ADVISOR_API_GROUNDED_DISTANCE_THRESHOLD: "0.5",
-        ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD: "0.8"
+        ADVISOR_API_PARTIAL_DISTANCE_THRESHOLD: "0.8",
+        // Deliberately high: the guest rate limiter is a process-wide singleton and
+        // this webServer is shared, sequentially, across every scenario in the suite
+        // (workers: 1) — the real 10/hour default would collide with unrelated
+        // scenarios' own query traffic. See Slice 0013's Test Seams note on why the
+        // rate-limit-exceeded behaviour is proven at the pytest/unit seams instead of
+        // a Gherkin scenario.
+        ADVISOR_API_GUEST_RATE_LIMIT: "1000"
       },
       reuseExistingServer: false,
       timeout: 30_000,

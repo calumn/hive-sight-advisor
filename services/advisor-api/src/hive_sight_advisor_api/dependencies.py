@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from langgraph.checkpoint.postgres import PostgresSaver
 
 from hive_sight_advisor_api.adapters.embedding_provider import EmbeddingProvider
@@ -21,6 +21,7 @@ from hive_sight_advisor_api.adapters.treatment_suggestion_provider import (
 from hive_sight_advisor_api.adapters.treatment_suggestion_stub import (
     StubTreatmentSuggestionProvider,
 )
+from hive_sight_advisor_api.rate_limiter import InMemoryRateLimiter, RateLimiter
 from hive_sight_advisor_api.repositories.corpus_repository import CorpusRepository
 from hive_sight_advisor_api.repositories.correction_repository import CorrectionRepository
 from hive_sight_advisor_api.repositories.jurisdiction_repository import JurisdictionRepository
@@ -64,6 +65,30 @@ def get_query_repository(connection: DbConnectionDep) -> PostgresQueryRepository
 
 
 QueryRepositoryDep = Annotated[PostgresQueryRepository, Depends(get_query_repository)]
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client is not None:
+        return request.client.host
+    return "unknown"
+
+
+ClientIpDep = Annotated[str, Depends(get_client_ip)]
+
+
+@lru_cache
+def get_rate_limiter() -> RateLimiter:
+    settings = load_settings()
+    return InMemoryRateLimiter(
+        limit=settings.guest_rate_limit,
+        window_seconds=settings.guest_rate_limit_window_seconds,
+    )
+
+
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 
 def get_correction_repository(connection: DbConnectionDep) -> CorrectionRepository:

@@ -11,6 +11,7 @@ from hive_sight_advisor_api.adapters.embedding_provider import EmbeddingProvider
 from hive_sight_advisor_api.adapters.embedding_voyage import VoyageEmbeddingProvider
 from hive_sight_advisor_api.corpus_admin import apply_curator_documents
 from hive_sight_advisor_api.db import apply_migrations
+from hive_sight_advisor_api.guest import GUEST_MEMBERSHIP_ID, GUEST_USER_ID, GUEST_WORKSPACE_ID
 from hive_sight_advisor_api.settings import load_settings
 
 CURATOR_ADDED_DOCUMENTS_PATH = Path(__file__).with_name("curator_added_documents.yaml")
@@ -223,6 +224,28 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
                 (DEV_MEMBERSHIP_ID, DEV_USER_ID, DEV_WORKSPACE_ID),
             )
 
+            # Slice 0013: the well-known Guest identity every unauthenticated
+            # /queries request resolves to — see architecture/vertical-slice-0013.
+            cursor.execute(
+                "INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING",
+                (GUEST_USER_ID,),
+            )
+            cursor.execute(
+                """
+                INSERT INTO workspaces (id, display_name) VALUES (%s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (GUEST_WORKSPACE_ID, "Guest Workspace"),
+            )
+            cursor.execute(
+                """
+                INSERT INTO workspace_memberships (id, user_id, workspace_id, role, status)
+                VALUES (%s, %s, %s, 'owner', 'active')
+                ON CONFLICT (user_id, workspace_id, role) DO NOTHING
+                """,
+                (GUEST_MEMBERSHIP_ID, GUEST_USER_ID, GUEST_WORKSPACE_ID),
+            )
+
             for jurisdiction in JURISDICTIONS:
                 cursor.execute(
                     """
@@ -349,8 +372,9 @@ def seed(database_url: str, embedding_provider: EmbeddingProvider) -> None:
         apply_curator_documents(connection, embedding_provider, CURATOR_ADDED_DOCUMENTS_PATH)
 
     print("Seeded Slice 0001/0002 dev data:")
-    print(f"  dev user id:      {DEV_USER_ID}")
-    print(f"  dev workspace id: {DEV_WORKSPACE_ID}")
+    print(f"  dev user id:        {DEV_USER_ID}")
+    print(f"  dev workspace id:   {DEV_WORKSPACE_ID}")
+    print(f"  guest workspace id: {GUEST_WORKSPACE_ID}")
     for jurisdiction in JURISDICTIONS:
         print(f"  {jurisdiction.display_name} jurisdiction id: {jurisdiction.jurisdiction_id}")
     for superseded in SUPERSEDED_DOCUMENTS:

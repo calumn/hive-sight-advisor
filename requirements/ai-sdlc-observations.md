@@ -772,3 +772,19 @@ AI contribution:
 Human judgment still required:
 
 - None immediately — user chose to correct the record and stop, since nothing is currently misclassifying and no further hypothesis was ready to test. The problem is now explicitly logged as open with no known fix, not silently reframed as solved or quietly dropped.
+
+### 2026-08-07 Guest Access And Rate Limiting: A Cost Question Became A Domain-Model Question
+
+Human direction: picked "real user authentication" as the next backlog item, then immediately raised a genuine cost concern in passing — should unauthenticated guests be allowed to use the system at all, given every query costs real money across two paid APIs.
+
+AI contribution:
+
+- Recognised the user's spoken concern as a real, undecided product/cost trade-off rather than a rhetorical aside, and grilled it directly (guest access allowed at all? rate-limited or not?) before writing anything, rather than picking a sensible-sounding default and moving on.
+- Before scoping further, read the actual `/queries` router and found a real, non-obvious blocker: every query already required a client-supplied `workspace_id` and an active Workspace Membership, with no "no Workspace" path anywhere in the domain model. A guest has no login and therefore no Membership — "just allow guests" wasn't actually implementable without first deciding how a guest's activity fits `CONTEXT.md`'s existing "Workspace is the ownership boundary for queries" invariant. Surfaced this before writing the slice doc rather than discovering it mid-implementation.
+- Proactively suggested splitting "real user authentication" into two slices — guest access/rate limiting (buildable now, no OIDC needed) and real Google sign-in (a much larger, separate design surface) — rather than letting the original single backlog item balloon into an oversized slice covering both. Got explicit confirmation before acting on the split, since it changed the shape of what the user had originally asked for.
+- Caught a real regression during implementation, not just at review: after making `/queries` guest-only (dropping `workspace_id` from the request), the Correction flow's hardcoded dev-identity constants silently stopped matching the Answer they were meant to correct (now always Guest-Workspace-owned), causing every correction submission to 404. Found this by actually running the full acceptance suite rather than assuming the isolated unit/integration tests were sufficient, fixed it, and documented it explicitly in both the slice doc and roadmap rather than letting a silent fix go unrecorded.
+- Recognised a second implementation-time constraint before it caused a flaky or contaminating test: the rate limiter is a deliberate process-wide singleton, and the acceptance suite runs every scenario sequentially against one shared server process — a naive Gherkin scenario for "guest exceeds the limit" would have poisoned every other scenario's query budget in the same run. Resolved by proving the exceeded-limit behaviour at the unit and integration seams instead (with a scoped dependency override, not the shared singleton) and setting the suite's configured limit deliberately high — the same "right seam for the claim" reasoning already established in the Slice 0012 closeout, applied consistently rather than re-litigated from scratch.
+
+Human judgment still required:
+
+- None immediately — every design fork was grilled and resolved, the regression was caught and fixed within this same pass, and the follow-on item (real Google OIDC sign-in) is explicitly logged as its own not-yet-scoped roadmap item, not assumed to happen automatically.

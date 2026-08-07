@@ -6,6 +6,8 @@ This document exists so you can verify test coverage without reading any code. E
 
 **One honest caveat that applies to every "Covered" row below**: the acceptance suite runs against stub embedding/generation providers (fast, free, deterministic), not the real Claude/Voyage APIs. It proves the *mechanics* are correct — retrieval, classification, citation, UI rendering — end-to-end. It does not continuously prove the real AI integration behaves well; that's currently only checked by manual live-browser demos during each slice's implementation, which aren't automated or repeatable. See the "Real-provider behaviour" section at the bottom.
 
+**Mechanism note (2026-08-07, Slice 0013)**: `POST /queries` no longer requires the dev-header/`workspace_id` shown implicitly in every scenario below — it's unauthenticated (Guest access, IP-rate-limited) by design now, not a leftover gap. Every scenario below already exercises this path since it's the only path that exists. Guest rate-limit-exceeded behaviour is proven at the `RateLimiter` unit and `POST /queries` pytest seams, not a Gherkin scenario — see `architecture/vertical-slice-0013-guest-access-and-rate-limiting.md`'s Open Questions for why a shared-process singleton made that seam the wrong one for this claim.
+
 ## Phase 1: Grounded Knowledge
 
 | Requirement | Description | Proven by | Status |

@@ -6,7 +6,7 @@ describe("submitQuery", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends the request with dev-auth headers and the correct body, and parses the answer", async () => {
+  it("sends the request with no auth header and the correct body, and parses the answer", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -32,8 +32,6 @@ describe("submitQuery", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const answer = await submitQuery({
-      devUserId: "user-1",
-      workspaceId: "workspace-1",
       jurisdictionId: "jurisdiction-1",
       text: "How do I treat varroa?"
     });
@@ -42,12 +40,8 @@ describe("submitQuery", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toMatch(/\/queries$/);
     expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({
-      "content-type": "application/json",
-      "x-dev-user-id": "user-1"
-    });
+    expect(init.headers).toEqual({ "content-type": "application/json" });
     expect(JSON.parse(init.body)).toEqual({
-      workspace_id: "workspace-1",
       jurisdiction_id: "jurisdiction-1",
       text: "How do I treat varroa?"
     });
@@ -71,24 +65,25 @@ describe("submitQuery", () => {
     });
   });
 
-  it("throws the server's detail message when the request fails", async () => {
+  it("throws the server's detail.message when the guest rate limit is exceeded", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "No active Workspace Membership." }), {
-          status: 403
-        })
+        new Response(
+          JSON.stringify({
+            detail: {
+              reason: "guest_rate_limit_exceeded",
+              message: "Guest query limit reached for this hour. Sign in for higher limits."
+            }
+          }),
+          { status: 429 }
+        )
       )
     );
 
     await expect(
-      submitQuery({
-        devUserId: "user-1",
-        workspaceId: "workspace-1",
-        jurisdictionId: "jurisdiction-1",
-        text: "How do I treat varroa?"
-      })
-    ).rejects.toThrow("No active Workspace Membership.");
+      submitQuery({ jurisdictionId: "jurisdiction-1", text: "How do I treat varroa?" })
+    ).rejects.toThrow("Guest query limit reached for this hour. Sign in for higher limits.");
   });
 });
 

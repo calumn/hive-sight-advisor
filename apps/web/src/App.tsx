@@ -3,8 +3,11 @@ import { QueryForm } from "./components/QueryForm";
 import { AnswerView } from "./components/AnswerView";
 import { submitQuery, type Answer } from "./api/advisorApiClient";
 
-const DEV_USER_ID = "00000000-0000-0000-0000-000000000101";
-const DEV_WORKSPACE_ID = "00000000-0000-0000-0000-000000000201";
+// Every /queries request is unauthenticated (Slice 0013) and resolves server-side
+// to the well-known Guest Workspace, so a submitted Answer is always owned by it —
+// the correction flow below must reference the same identity to locate that Answer.
+const GUEST_USER_ID = "00000000-0000-0000-0000-000000000901";
+const GUEST_WORKSPACE_ID = "00000000-0000-0000-0000-000000000902";
 
 type RequestState =
   | { status: "idle" }
@@ -18,12 +21,7 @@ export function App() {
   async function handleSubmit(text: string, jurisdictionId: string) {
     setState({ status: "loading" });
     try {
-      const answer = await submitQuery({
-        devUserId: DEV_USER_ID,
-        workspaceId: DEV_WORKSPACE_ID,
-        jurisdictionId,
-        text
-      });
+      const answer = await submitQuery({ jurisdictionId, text });
       setState({ status: "ready", answer });
     } catch (error) {
       setState({
@@ -40,7 +38,7 @@ export function App() {
       <QueryForm onSubmit={handleSubmit} disabled={state.status === "loading"} />
       {state.status === "error" && <p className="error">{state.message}</p>}
       {state.status === "ready" && (
-        <AnswerView answer={state.answer} devUserId={DEV_USER_ID} workspaceId={DEV_WORKSPACE_ID} />
+        <AnswerView answer={state.answer} devUserId={GUEST_USER_ID} workspaceId={GUEST_WORKSPACE_ID} />
       )}
     </main>
   );

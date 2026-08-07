@@ -40,6 +40,10 @@ _Avoid_: Ground truth, training label. (Parallels HiveSight's User Correction â€
 
 ## Terms Specific To This Product
 
+**Guest**:
+An unauthenticated caller of `POST /queries`, rate-limited per IP address and resolved server-side to a single well-known Guest Workspace rather than a User-owned one. Introduced in Slice 0013 as the honest name for what was already true (no real sign-in exists yet) â€” not a new access tier layered on top of a pre-existing authenticated one.
+_Avoid_: User when the point is that no login/identity exists at all. Corrections still require the existing dev-header mechanism and are unaffected by Guest status.
+
 **Jurisdiction**:
 The national or regional regulatory and guidance context (at minimum, in version one: US, UK) that determines which treatments and guidance are applicable.
 _Avoid_: Region, location, when the point is regulatory/guidance applicability rather than geography generally.

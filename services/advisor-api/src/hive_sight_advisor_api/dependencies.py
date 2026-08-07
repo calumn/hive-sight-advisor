@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterator
 from functools import lru_cache
 from typing import Annotated
-from uuid import UUID
 
 import psycopg
 from fastapi import Depends, Header, HTTPException, Request
@@ -21,6 +20,7 @@ from hive_sight_advisor_api.adapters.treatment_suggestion_provider import (
 from hive_sight_advisor_api.adapters.treatment_suggestion_stub import (
     StubTreatmentSuggestionProvider,
 )
+from hive_sight_advisor_api.google_sign_in import GoogleIdTokenVerifier, InvalidGoogleIdToken
 from hive_sight_advisor_api.rate_limiter import InMemoryRateLimiter, RateLimiter
 from hive_sight_advisor_api.repositories.corpus_repository import CorpusRepository
 from hive_sight_advisor_api.repositories.correction_repository import CorrectionRepository
@@ -29,6 +29,10 @@ from hive_sight_advisor_api.repositories.proposed_treatment_repository import (
     ProposedTreatmentRepository,
 )
 from hive_sight_advisor_api.repositories.query_repository import PostgresQueryRepository
+from hive_sight_advisor_api.repositories.user_provisioning_repository import (
+    ProvisionedIdentity,
+    UserProvisioningRepository,
+)
 from hive_sight_advisor_api.settings import Settings, load_settings
 from hive_sight_advisor_api.workflows.answer_query import AnswerQueryWorkflow
 from hive_sight_advisor_api.workflows.treatment_plan_workflow import TreatmentPlanWorkflow
@@ -91,6 +95,75 @@ def get_rate_limiter() -> RateLimiter:
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 
+@lru_cache
+def get_google_id_token_verifier() -> GoogleIdTokenVerifier:
+    settings = load_settings()
+    return GoogleIdTokenVerifier(client_id=settings.google_client_id)
+
+
+GoogleIdTokenVerifierDep = Annotated[GoogleIdTokenVerifier, Depends(get_google_id_token_verifier)]
+
+
+def get_user_provisioning_repository(connection: DbConnectionDep) -> UserProvisioningRepository:
+    return UserProvisioningRepository(connection)
+
+
+UserProvisioningRepositoryDep = Annotated[
+    UserProvisioningRepository, Depends(get_user_provisioning_repository)
+]
+
+
+def _extract_bearer_token(authorization: str | None) -> str | None:
+    if authorization is None:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return token
+
+
+def _verify_and_provision(
+    token: str,
+    verifier: GoogleIdTokenVerifier,
+    provisioning: UserProvisioningRepository,
+) -> ProvisionedIdentity:
+    try:
+        identity = verifier.verify(token)
+    except InvalidGoogleIdToken as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired sign-in.") from exc
+    return provisioning.find_or_provision(
+        google_sub=identity.sub, email=identity.email, display_name=identity.name
+    )
+
+
+def get_required_identity(
+    verifier: GoogleIdTokenVerifierDep,
+    provisioning: UserProvisioningRepositoryDep,
+    authorization: Annotated[str | None, Header()] = None,
+) -> ProvisionedIdentity:
+    token = _extract_bearer_token(authorization)
+    if token is None:
+        raise HTTPException(status_code=401, detail="Sign in required.")
+    return _verify_and_provision(token, verifier, provisioning)
+
+
+RequiredIdentityDep = Annotated[ProvisionedIdentity, Depends(get_required_identity)]
+
+
+def get_optional_identity(
+    verifier: GoogleIdTokenVerifierDep,
+    provisioning: UserProvisioningRepositoryDep,
+    authorization: Annotated[str | None, Header()] = None,
+) -> ProvisionedIdentity | None:
+    token = _extract_bearer_token(authorization)
+    if token is None:
+        return None
+    return _verify_and_provision(token, verifier, provisioning)
+
+
+OptionalIdentityDep = Annotated[ProvisionedIdentity | None, Depends(get_optional_identity)]
+
+
 def get_correction_repository(connection: DbConnectionDep) -> CorrectionRepository:
     return CorrectionRepository(connection)
 
@@ -141,20 +214,6 @@ def get_answer_query_workflow(
 
 
 AnswerQueryWorkflowDep = Annotated[AnswerQueryWorkflow, Depends(get_answer_query_workflow)]
-
-
-def get_dev_user_id(
-    x_dev_user_id: Annotated[str | None, Header(alias="x-dev-user-id")] = None,
-) -> UUID:
-    if x_dev_user_id is None:
-        raise HTTPException(status_code=401, detail="Missing dev-auth header.")
-    try:
-        return UUID(x_dev_user_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=401, detail="Invalid dev-auth header.") from exc
-
-
-DevUserIdDep = Annotated[UUID, Depends(get_dev_user_id)]
 
 
 def get_hivesight_service_credential(

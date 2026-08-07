@@ -788,3 +788,19 @@ AI contribution:
 Human judgment still required:
 
 - None immediately — every design fork was grilled and resolved, the regression was caught and fixed within this same pass, and the follow-on item (real Google OIDC sign-in) is explicitly logged as its own not-yet-scoped roadmap item, not assumed to happen automatically.
+
+### 2026-08-07 Google OIDC Sign-In: A Deterministic Test Strategy For An Undeterministic External Auth Provider
+
+Human direction: "scope real Google OIDC sign-in" — the remaining half of the original "real user authentication" item.
+
+AI contribution:
+
+- Before grilling design questions, verified the actual constraints rather than assuming a familiar OAuth pattern would apply cleanly: checked both `pyproject.toml` and `package.json` to confirm this was genuinely greenfield (no JWT/session library anywhere), and checked the CORS middleware to confirm `allow_credentials` wasn't set — meaning a cookie-based session wasn't even viable today without extra config, a concrete fact that fed directly into the session-transport grilling question rather than being asserted from general knowledge.
+- Solved the real engineering problem of testing signature verification against an external identity provider deterministically: rather than either skipping verification-logic tests entirely or depending on live Google network calls in CI, used `google-auth`'s own injectable `request` transport parameter to serve a locally-generated JWKS matching a self-signed test token — proving the *real* verification library's behavior (wrong audience, wrong issuer, expired token, unknown signing key) without any live dependency. Verified this approach worked with a standalone throwaway script before committing to it in the actual test suite, rather than discovering a dead end mid-TDD.
+- Surfaced a second real library-selection fork mid-implementation: `google-auth`'s JWK-format certs path lazily imports `pyjwt`, which wasn't installed — rather than silently reaching for a workaround, added it as an explicit declared dependency once confirmed necessary.
+- Hit a genuine, non-obvious test-infrastructure conflict once the frontend/backend wiring was done: the two pre-existing browser-level correction-submission scenarios (Slice 0005) could no longer be driven through the UI, since real Google sign-in can't be automated in Playwright without either driving Google's actual consent screen or adding a bypass to the app. Rather than quietly picking one (especially the bypass, which is a real security-relevant code change), stopped and grilled it directly with the user, naming the trade-off honestly (bypass code in production vs. real coverage loss) rather than downplaying either side. This mirrors the "right seam for the claim" pattern from Slices 0012/0013, but is a meaningfully higher-stakes instance of it — the earlier cases were about *proving new* behavior at the right seam; this one is about *accepting the loss* of previously-existing browser-level coverage, which deserved the user's explicit sign-off rather than being silently absorbed as "just another implementation detail."
+
+Human judgment still required:
+
+- The Google Cloud OAuth Client ID precondition still needs creating before the live-browser verification pass can run — flagged clearly in the slice doc, roadmap, and acceptance criteria as the one remaining open step, not silently treated as done.
+- Signing out and the cross-project alignment note to HiveSight (both explicitly named as still-open in the original pre-slice discussion) remain unscoped — logged, not actioned.

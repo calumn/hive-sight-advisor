@@ -2,10 +2,15 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from hive_sight_advisor_api.dependencies import get_db_connection, get_rate_limiter
+from hive_sight_advisor_api.dependencies import (
+    get_db_connection,
+    get_optional_identity,
+    get_rate_limiter,
+)
 from hive_sight_advisor_api.guest import GUEST_MEMBERSHIP_ID, GUEST_USER_ID, GUEST_WORKSPACE_ID
 from hive_sight_advisor_api.main import app
 from hive_sight_advisor_api.rate_limiter import InMemoryRateLimiter
+from hive_sight_advisor_api.repositories.user_provisioning_repository import ProvisionedIdentity
 
 
 def _seed_guest_workspace(cursor) -> None:
@@ -112,5 +117,48 @@ def test_submit_query_beyond_the_guest_rate_limit_returns_429(postgres_connectio
 
         assert second.status_code == 429
         assert second.json()["detail"]["reason"] == "guest_rate_limit_exceeded"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_submit_query_when_signed_in_bypasses_the_guest_rate_limit(postgres_connection) -> None:
+    limiter = InMemoryRateLimiter(limit=1, window_seconds=3600)
+    user_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+    app.dependency_overrides[get_db_connection] = lambda: postgres_connection
+    app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    app.dependency_overrides[get_optional_identity] = lambda: ProvisionedIdentity(
+        user_id=user_id, workspace_id=workspace_id
+    )
+    try:
+        jurisdiction_id = uuid.uuid4()
+        with postgres_connection.cursor() as cursor:
+            cursor.execute("INSERT INTO users (id) VALUES (%s)", (user_id,))
+            cursor.execute("INSERT INTO workspaces (id) VALUES (%s)", (workspace_id,))
+            cursor.execute(
+                """
+                INSERT INTO workspace_memberships (id, user_id, workspace_id, role, status)
+                VALUES (%s, %s, %s, 'owner', 'active')
+                """,
+                (uuid.uuid4(), user_id, workspace_id),
+            )
+            cursor.execute(
+                "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+                (jurisdiction_id, "uk", "United Kingdom"),
+            )
+        postgres_connection.commit()
+
+        client = TestClient(app)
+        for _ in range(3):
+            response = client.post(
+                "/queries",
+                json={"jurisdiction_id": str(jurisdiction_id), "text": "How do I treat varroa?"},
+            )
+            assert response.status_code == 200
+
+        with postgres_connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM queries WHERE workspace_id = %s", (workspace_id,))
+            (count,) = cursor.fetchone()
+        assert count == 3
     finally:
         app.dependency_overrides.clear()

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from hive_sight_advisor_api.dependencies import (
     AnswerQueryWorkflowDep,
     ClientIpDep,
+    OptionalIdentityDep,
     RateLimiterDep,
 )
 from hive_sight_advisor_api.guest import GUEST_WORKSPACE_ID
@@ -41,19 +42,24 @@ def submit_query(
     request: QueryRequest,
     client_ip: ClientIpDep,
     rate_limiter: RateLimiterDep,
+    identity: OptionalIdentityDep,
     workflow: AnswerQueryWorkflowDep,
 ) -> AnswerResponse:
-    if not rate_limiter.allow(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "reason": "guest_rate_limit_exceeded",
-                "message": "Guest query limit reached for this hour. Sign in for higher limits.",
-            },
-        )
+    if identity is not None:
+        workspace_id = identity.workspace_id
+    else:
+        if not rate_limiter.allow(client_ip):
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "reason": "guest_rate_limit_exceeded",
+                    "message": "Guest query limit reached for this hour. Sign in for higher limits.",
+                },
+            )
+        workspace_id = GUEST_WORKSPACE_ID
 
     answer = workflow.answer_query(
-        workspace_id=GUEST_WORKSPACE_ID,
+        workspace_id=workspace_id,
         query_text=request.text,
         jurisdiction_id=request.jurisdiction_id,
     )

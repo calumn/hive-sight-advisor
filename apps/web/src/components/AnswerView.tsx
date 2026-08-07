@@ -3,11 +3,10 @@ import { submitCorrection, type Answer } from "../api/advisorApiClient";
 
 export type AnswerViewProps = {
   answer: Answer;
-  devUserId: string;
-  workspaceId: string;
+  token: string | null;
 };
 
-export function AnswerView({ answer, devUserId, workspaceId }: AnswerViewProps) {
+export function AnswerView({ answer, token }: AnswerViewProps) {
   const [isFlagFormOpen, setIsFlagFormOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [submissionState, setSubmissionState] = useState<
@@ -18,14 +17,13 @@ export function AnswerView({ answer, devUserId, workspaceId }: AnswerViewProps) 
   async function handleSubmitCorrection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedNotes = notes.trim();
-    if (trimmedNotes.length === 0) {
+    if (trimmedNotes.length === 0 || token === null) {
       return;
     }
     setSubmissionState("submitting");
     try {
       await submitCorrection({
-        devUserId,
-        workspaceId,
+        token,
         answerId: answer.id,
         notes: trimmedNotes
       });
@@ -87,7 +85,9 @@ export function AnswerView({ answer, devUserId, workspaceId }: AnswerViewProps) 
       )}
 
       <div className="answer-correction">
-        {submissionState === "submitted" ? (
+        {token === null ? (
+          <p className="correction-sign-in-prompt">Sign in to flag this answer as wrong.</p>
+        ) : submissionState === "submitted" ? (
           <div className="correction-ack">
             <p>Thanks — recorded.</p>
             <button type="button" onClick={handleFlagAgain}>

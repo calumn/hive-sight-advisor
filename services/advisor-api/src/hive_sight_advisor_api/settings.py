@@ -7,13 +7,13 @@ class Settings:
     database_url: str
     voyage_api_key: str
     anthropic_api_key: str
-    dev_user_header: str = "X-Dev-User-Id"
     allowed_origins: list[str] | None = None
     grounded_distance_threshold: float = 0.35
     partial_distance_threshold: float = 0.55
     hivesight_service_key: str = ""
     guest_rate_limit: int = 10
     guest_rate_limit_window_seconds: float = 3600.0
+    google_client_id: str = ""
 
 
 def load_settings() -> Settings:
@@ -24,7 +24,6 @@ def load_settings() -> Settings:
         ),
         voyage_api_key=os.getenv("VOYAGE_API_KEY", ""),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        dev_user_header=os.getenv("ADVISOR_API_DEV_USER_HEADER", "X-Dev-User-Id"),
         allowed_origins=_csv_env(
             "ADVISOR_API_ALLOWED_ORIGINS",
             "http://localhost:5183,http://127.0.0.1:5183",
@@ -40,6 +39,7 @@ def load_settings() -> Settings:
         guest_rate_limit_window_seconds=float(
             os.getenv("ADVISOR_API_GUEST_RATE_LIMIT_WINDOW_SECONDS", "3600")
         ),
+        google_client_id=os.getenv("ADVISOR_API_GOOGLE_CLIENT_ID", ""),
     )
 
 

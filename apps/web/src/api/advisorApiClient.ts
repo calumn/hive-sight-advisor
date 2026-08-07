@@ -26,16 +26,21 @@ const advisorApiUrl = import.meta.env.VITE_ADVISOR_API_URL ?? "http://localhost:
 
 export async function submitQuery({
   jurisdictionId,
-  text
+  text,
+  token
 }: {
   jurisdictionId: string;
   text: string;
+  token?: string | null;
 }): Promise<Answer> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) {
+    headers["authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${advisorApiUrl}/queries`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       jurisdiction_id: jurisdictionId,
       text
@@ -47,13 +52,11 @@ export async function submitQuery({
 }
 
 export async function submitCorrection({
-  devUserId,
-  workspaceId,
+  token,
   answerId,
   notes
 }: {
-  devUserId: string;
-  workspaceId: string;
+  token: string;
   answerId: string;
   notes: string;
 }): Promise<Correction> {
@@ -61,10 +64,9 @@ export async function submitCorrection({
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-dev-user-id": devUserId
+      authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
-      workspace_id: workspaceId,
       answer_id: answerId,
       notes
     })

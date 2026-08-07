@@ -85,6 +85,34 @@ describe("submitQuery", () => {
       submitQuery({ jurisdictionId: "jurisdiction-1", text: "How do I treat varroa?" })
     ).rejects.toThrow("Guest query limit reached for this hour. Sign in for higher limits.");
   });
+
+  it("sends an authorization header when a token is provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "answer-1",
+          query_id: "query-1",
+          text: "Treat varroa with oxalic acid.",
+          grounding_status: "grounded",
+          citations: []
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await submitQuery({
+      jurisdictionId: "jurisdiction-1",
+      text: "How do I treat varroa?",
+      token: "google-id-token"
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers).toEqual({
+      "content-type": "application/json",
+      authorization: "Bearer google-id-token"
+    });
+  });
 });
 
 describe("submitCorrection", () => {
@@ -92,7 +120,7 @@ describe("submitCorrection", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends the request with dev-auth headers and the correct body, and parses the response", async () => {
+  it("sends the request with a bearer token and the correct body, and parses the response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ id: "correction-1", answer_id: "answer-1", status: "trusted" }),
@@ -102,8 +130,7 @@ describe("submitCorrection", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const correction = await submitCorrection({
-      devUserId: "user-1",
-      workspaceId: "workspace-1",
+      token: "google-id-token",
       answerId: "answer-1",
       notes: "This cites the wrong jurisdiction's guidance."
     });
@@ -112,12 +139,11 @@ describe("submitCorrection", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toMatch(/\/corrections$/);
     expect(init.method).toBe("POST");
-    expect(init.headers).toMatchObject({
+    expect(init.headers).toEqual({
       "content-type": "application/json",
-      "x-dev-user-id": "user-1"
+      authorization: "Bearer google-id-token"
     });
     expect(JSON.parse(init.body)).toEqual({
-      workspace_id: "workspace-1",
       answer_id: "answer-1",
       notes: "This cites the wrong jurisdiction's guidance."
     });
@@ -129,19 +155,18 @@ describe("submitCorrection", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "Answer not found in this Workspace." }), {
-          status: 404
+        new Response(JSON.stringify({ detail: "Sign in required." }), {
+          status: 401
         })
       )
     );
 
     await expect(
       submitCorrection({
-        devUserId: "user-1",
-        workspaceId: "workspace-1",
+        token: "google-id-token",
         answerId: "answer-1",
         notes: "Something is wrong."
       })
-    ).rejects.toThrow("Answer not found in this Workspace.");
+    ).rejects.toThrow("Sign in required.");
   });
 });

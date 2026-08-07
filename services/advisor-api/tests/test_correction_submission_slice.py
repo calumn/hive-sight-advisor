@@ -2,8 +2,9 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from hive_sight_advisor_api.dependencies import get_db_connection
+from hive_sight_advisor_api.dependencies import get_db_connection, get_required_identity
 from hive_sight_advisor_api.main import app
+from hive_sight_advisor_api.repositories.user_provisioning_repository import ProvisionedIdentity
 
 
 def _seed_workspace_with_answer(cursor, *, user_id, workspace_id):
@@ -29,7 +30,13 @@ def _seed_workspace_with_answer(cursor, *, user_id, workspace_id):
     return answer_id
 
 
-def test_submit_correction_with_valid_membership_persists_it(postgres_connection) -> None:
+def _sign_in_as(user_id, workspace_id) -> None:
+    app.dependency_overrides[get_required_identity] = lambda: ProvisionedIdentity(
+        user_id=user_id, workspace_id=workspace_id
+    )
+
+
+def test_submit_correction_when_signed_in_persists_it(postgres_connection) -> None:
     app.dependency_overrides[get_db_connection] = lambda: postgres_connection
     try:
         user_id = uuid.uuid4()
@@ -37,16 +44,15 @@ def test_submit_correction_with_valid_membership_persists_it(postgres_connection
         with postgres_connection.cursor() as cursor:
             answer_id = _seed_workspace_with_answer(cursor, user_id=user_id, workspace_id=workspace_id)
         postgres_connection.commit()
+        _sign_in_as(user_id, workspace_id)
 
         client = TestClient(app)
         response = client.post(
             "/corrections",
             json={
-                "workspace_id": str(workspace_id),
                 "answer_id": str(answer_id),
                 "notes": "This cites the wrong jurisdiction's guidance."
             },
-            headers={"x-dev-user-id": str(user_id)},
         )
 
         assert response.status_code == 200
@@ -70,17 +76,13 @@ def test_submit_correction_twice_for_the_same_answer_both_succeed(postgres_conne
         with postgres_connection.cursor() as cursor:
             answer_id = _seed_workspace_with_answer(cursor, user_id=user_id, workspace_id=workspace_id)
         postgres_connection.commit()
+        _sign_in_as(user_id, workspace_id)
 
         client = TestClient(app)
         for notes in ("First issue.", "Second issue."):
             response = client.post(
                 "/corrections",
-                json={
-                    "workspace_id": str(workspace_id),
-                    "answer_id": str(answer_id),
-                    "notes": notes
-                },
-                headers={"x-dev-user-id": str(user_id)},
+                json={"answer_id": str(answer_id), "notes": notes},
             )
             assert response.status_code == 200
 
@@ -92,31 +94,38 @@ def test_submit_correction_twice_for_the_same_answer_both_succeed(postgres_conne
         app.dependency_overrides.clear()
 
 
-def test_submit_correction_without_membership_is_rejected(postgres_connection) -> None:
+def test_submit_correction_without_signing_in_is_rejected(postgres_connection) -> None:
     app.dependency_overrides[get_db_connection] = lambda: postgres_connection
     try:
-        workspace_id = uuid.uuid4()
-        with postgres_connection.cursor() as cursor:
-            cursor.execute("INSERT INTO workspaces (id) VALUES (%s)", (workspace_id,))
-        postgres_connection.commit()
-
         client = TestClient(app)
         response = client.post(
             "/corrections",
-            json={
-                "workspace_id": str(workspace_id),
-                "answer_id": str(uuid.uuid4()),
-                "notes": "Something is wrong."
-            },
-            headers={"x-dev-user-id": str(uuid.uuid4())},
+            json={"answer_id": str(uuid.uuid4()), "notes": "Something is wrong."},
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
     finally:
         app.dependency_overrides.clear()
 
 
-def test_submit_correction_for_an_answer_in_a_different_workspace_is_rejected(postgres_connection) -> None:
+def test_submit_correction_with_an_invalid_token_is_rejected(postgres_connection) -> None:
+    app.dependency_overrides[get_db_connection] = lambda: postgres_connection
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/corrections",
+            json={"answer_id": str(uuid.uuid4()), "notes": "Something is wrong."},
+            headers={"authorization": "Bearer not-a-real-token"},
+        )
+
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_submit_correction_for_an_answer_in_a_different_workspace_is_rejected(
+    postgres_connection,
+) -> None:
     app.dependency_overrides[get_db_connection] = lambda: postgres_connection
     try:
         user_id = uuid.uuid4()
@@ -135,16 +144,12 @@ def test_submit_correction_for_an_answer_in_a_different_workspace_is_rejected(po
                 (uuid.uuid4(), user_id, other_workspace_id),
             )
         postgres_connection.commit()
+        _sign_in_as(user_id, other_workspace_id)
 
         client = TestClient(app)
         response = client.post(
             "/corrections",
-            json={
-                "workspace_id": str(other_workspace_id),
-                "answer_id": str(answer_id),
-                "notes": "Something is wrong."
-            },
-            headers={"x-dev-user-id": str(user_id)},
+            json={"answer_id": str(answer_id), "notes": "Something is wrong."},
         )
 
         assert response.status_code == 404
@@ -160,12 +165,12 @@ def test_submit_correction_with_empty_notes_is_rejected(postgres_connection) -> 
         with postgres_connection.cursor() as cursor:
             answer_id = _seed_workspace_with_answer(cursor, user_id=user_id, workspace_id=workspace_id)
         postgres_connection.commit()
+        _sign_in_as(user_id, workspace_id)
 
         client = TestClient(app)
         response = client.post(
             "/corrections",
-            json={"workspace_id": str(workspace_id), "answer_id": str(answer_id), "notes": ""},
-            headers={"x-dev-user-id": str(user_id)},
+            json={"answer_id": str(answer_id), "notes": ""},
         )
 
         assert response.status_code == 422

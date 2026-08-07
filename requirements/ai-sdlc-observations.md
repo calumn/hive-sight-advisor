@@ -696,3 +696,19 @@ Human judgment still required:
 
 - Root-cause the treatment trade-off comparison failure (stub embedding distance drift is the leading hypothesis, unconfirmed) and decide the fix.
 - FR-004 should not be considered demonstrated again until that scenario passes and its traceability row is restored to Covered.
+
+### 2026-08-07 Treatment Trade-Off Comparison Failure Root-Caused: A Test Bug, Not Drift
+
+Human direction: "dig into it" — following up on the treatment trade-off comparison failure logged earlier the same day, where the initial hypothesis (recorded honestly as unconfirmed) was stub-embedding threshold drift, by analogy with the already-documented live-pass drift finding.
+
+AI contribution:
+
+- Did not act on the drift hypothesis without checking it. Computed the actual stub-embedding cosine distances for the real scenario query against all four UK passages directly, rather than reasoning abstractly about "corpus growth." Result: closest match (Apivar) at 0.67, comfortably within the partial threshold (0.8) — meaning the retrieval/grounding logic should have retrieved and cited multiple documents, contradicting the "drift" hypothesis outright.
+- Given the hand-calculation didn't match the observed failure, didn't stop at "well, my theory says it should work" — went to the actual captured evidence from the failed run (`error-context.md`'s page snapshot) rather than re-running blind. That snapshot showed the "Asking..." button still disabled at the moment of assertion — direct evidence the request was still in flight, not that grounding had failed.
+- Confirmed the real root cause by comparing against every other (passing) step file's pattern: all of them wait for `.answer-view` to become visible (an auto-retrying assertion) before reading any further content; the failing step skipped straight to `allTextContents()`, which reads the DOM once with no wait at all.
+- Fixed the step definition to match the established pattern, verified in isolation (scenario alone) and then the full suite (10/10 passed).
+- Went back and corrected both `requirements/roadmap.md`'s entry and `traceability.md`'s FR-004 row rather than leaving the earlier, now-disproven drift hypothesis on record — an incorrect diagnosis left unretracted would be actively misleading to a user who relies on these docs instead of reading code.
+
+Human judgment still required:
+
+- None — this one closed cleanly. Worth noting as a process point: the earlier finding was logged with appropriate uncertainty ("not yet root-caused," "plausibly," "needs its own investigation") rather than asserted as fact, which made correcting it later a clean edit rather than a retraction of something stated too confidently.

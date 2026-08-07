@@ -1,10 +1,15 @@
 import os
+import re
 import uuid
 
 import pytest
 
 from hive_sight_advisor_api.adapters.generation_claude import ClaudeGenerationProvider
 from hive_sight_advisor_api.repositories.corpus_repository import Passage
+
+_UUID_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
+)
 
 
 @pytest.mark.skipif(
@@ -30,6 +35,10 @@ def test_claude_generation_grounds_answer_in_the_passage_and_cites_it() -> None:
 
     assert "oxalic acid" in result.text.lower()
     assert result.cited_passage_ids == [passage.id]
+    assert not _UUID_PATTERN.search(result.text), (
+        "Answer text should read as plain prose with no raw passage id leaking in - "
+        "citations belong in cited_passage_ids only."
+    )
 
 
 @pytest.mark.skipif(
@@ -81,3 +90,7 @@ def test_claude_generation_compares_genuinely_different_treatment_options() -> N
     assert "apivar" in result.text.lower() or "amitraz" in result.text.lower()
     assert "apiguard" in result.text.lower() or "thymol" in result.text.lower()
     assert set(result.cited_passage_ids) == {amitraz_passage.id, thymol_passage.id}
+    assert not _UUID_PATTERN.search(result.text), (
+        "Answer text should read as plain prose with no raw passage id leaking in - "
+        "citations belong in cited_passage_ids only."
+    )

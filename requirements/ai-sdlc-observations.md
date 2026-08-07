@@ -679,3 +679,20 @@ Human judgment still required:
 - Whether HiveSight actually wants Advisor's recommendation-history endpoint, or whether HiveSight's own snapshotting already covers the audit need.
 - The accept/decline routing question above.
 - Whether the prose-in-shared-skill recommendation satisfies what HiveSight was actually after, or whether they'll push back toward the file-sharing approach once a third capability makes the same-repo pattern more attractive to extend.
+
+### 2026-08-07 Web Acceptance Feature Files Migrated To Capability-Based Naming
+
+Human direction: prompted by reviewing HiveSight's own capability-catalogue migration and their stated motivation — not a bug found, but the concern that slice docs are point-in-time records, and a test file named after the slice that introduced it gives no signal about whether it's still the live description of current behaviour once later work supersedes it. Confirmed this had already happened for real in this repo: Slice 0011 required editing the Slice 0008/0009 tests in place when the request contract changed.
+
+AI contribution:
+
+- Moved all six web acceptance feature files from `vertical_slice_NNNN_*.feature` naming into capability directories (`grounding/`, `jurisdiction/`, `provenance/`, `corrections/`, `treatment/`), matching HiveSight's own `acceptance/features/<capability>/...` convention. Renamed the paired step files to match. Used `git mv` throughout so history is preserved, not lost to a delete+add.
+- Updated both Playwright configs' feature glob from `*.feature` to `**/*.feature` to reach the new subdirectories; confirmed via `playwright.live.config.ts`'s `grep` filter (which matches `Feature:` title text, not file paths) that the live-pass config needed no further change.
+- Updated `requirements/traceability.md`'s seven pointers to the new paths, and added an explicit naming rule to the project-local `requirements-traceability` skill: feature files are named by capability, never by slice, with the reasoning stated plainly so a future session understands *why*, not just the rule.
+- Verified the migration didn't break anything by actually running the suite (not just trusting the mechanical rename): 9 of 10 scenarios passed. The 10th (treatment trade-off comparison) failed — before concluding anything, confirmed via `git stash` that it fails identically against the pre-migration commit, proving it's a pre-existing issue the migration surfaced by being the first full run this session, not something the rename caused.
+- Did not silently work around or ignore the pre-existing failure once found. Logged it as its own roadmap item (distinct from the existing, related-but-different live-pass threshold-drift item — this is the *stub* suite returning zero citations, a more severe symptom than the live suite's partial/ungrounded ambiguity) and, per the traceability skill's own "be honest about what Covered actually proves" rule, changed FR-004's traceability row from "Covered" to an explicit failing-scenario warning rather than leaving a green checkmark next to a red test.
+
+Human judgment still required:
+
+- Root-cause the treatment trade-off comparison failure (stub embedding distance drift is the leading hypothesis, unconfirmed) and decide the fix.
+- FR-004 should not be considered demonstrated again until that scenario passes and its traceability row is restored to Covered.

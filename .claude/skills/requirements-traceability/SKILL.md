@@ -16,6 +16,10 @@ No functional requirement counts as "done" until:
 
 If a slice's acceptance criteria don't include real Gherkin coverage, that itself is a gap worth naming before calling the slice finished, not something to quietly work around.
 
+## Feature files are named by capability, never by slice
+
+`apps/web/tests/acceptance/features/` is organised by capability (`grounding/`, `jurisdiction/`, `provenance/`, `corrections/`, `treatment/`, ...), not by the slice that introduced the behaviour. This is deliberate, not cosmetic: slice docs are point-in-time records, and behaviour genuinely gets superseded by later slices without the earlier slice doc being retroactively rewritten. A file named `vertical_slice_0004_...feature` gives no signal to a future reader (human or AI) about whether it's frozen historical evidence or still the live description of current behaviour — a capability-named file makes that unambiguous by construction. When a new slice adds acceptance coverage, put it under the capability directory it belongs to (create one if it's new), never under a slice number. If a slice number appears anywhere in a feature or step filename, that's a naming regression to fix, not a style choice to leave alone.
+
 ## When to touch the traceability doc
 
 - A vertical slice's acceptance criteria are all met and its Gherkin scenarios are verified passing: add or update the row(s) for the requirement(s) it proves.

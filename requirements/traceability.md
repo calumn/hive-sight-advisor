@@ -11,14 +11,14 @@ This document exists so you can verify test coverage without reading any code. E
 | Requirement | Description | Proven by | Status |
 |---|---|---|---|
 | FR-000 | Model `Workspace`/`Workspace Membership`/roles | *(implicit)* | ⚪ Not a discrete scenario — every scenario's precondition depends on a valid dev-authenticated Workspace Membership already existing, so it's exercised constantly but never asserted on its own |
-| FR-001 | Answer grounded in the curated corpus, not unaided generation | `vertical_slice_0001_grounded_query_answer.feature` — *Beekeeper asks a Varroa question and receives a grounded, cited Answer* | ✅ Covered |
+| FR-001 | Answer grounded in the curated corpus, not unaided generation | `grounding/grounded-query-answer.feature` — *Beekeeper asks a Varroa question and receives a grounded, cited Answer* | ✅ Covered |
 | FR-002 | Every answer cites its source passage(s) | Same scenario as FR-001, plus every other scenario below (citations are asserted throughout) | ✅ Covered |
-| FR-003 | Determine jurisdiction; never blend guidance across jurisdictions | `vertical_slice_0002_second_jurisdiction_non_blending.feature` — *Beekeeper receives an Answer grounded only in the selected Jurisdiction* (Scenario Outline, both UK and US examples) | ✅ Covered |
-| FR-004 | Compare treatment options, surface trade-offs | `vertical_slice_0007_treatment_trade_off_comparison.feature` — *Beekeeper asks a question spanning multiple genuinely relevant treatment options* | ✅ Covered |
-| FR-005 | Flag a source that's been superseded, rather than citing it as current | `vertical_slice_0004_source_supersession_and_provenance.feature` — *Beekeeper's Answer cites a source that has since been superseded* | ✅ Covered |
+| FR-003 | Determine jurisdiction; never blend guidance across jurisdictions | `jurisdiction/jurisdiction-isolation.feature` — *Beekeeper receives an Answer grounded only in the selected Jurisdiction* (Scenario Outline, both UK and US examples) | ✅ Covered |
+| FR-004 | Compare treatment options, surface trade-offs | `treatment/treatment-trade-off-comparison.feature` — *Beekeeper asks a question spanning multiple genuinely relevant treatment options* | ⚠️ Scenario exists but is currently **failing** (discovered 2026-08-07, pre-existing, unrelated to any recent rename) — the stub-provider suite now returns zero citations where it previously returned multiple. Not yet root-caused. See `requirements/roadmap.md` for the tracked finding. Do not treat this requirement as demonstrated until the scenario passes again. |
+| FR-005 | Flag a source that's been superseded, rather than citing it as current | `provenance/source-supersession-and-provenance.feature` — *Beekeeper's Answer cites a source that has since been superseded* | ✅ Covered |
 | FR-006 | Surface it explicitly when two authoritative sources materially disagree | — | ❌ Not built — no scenario exists. Blocked on finding or surfacing a genuine source disagreement; see `requirements/roadmap.md` |
-| FR-007 | Beekeeper can flag an Answer as wrong; retained as evaluation evidence | `vertical_slice_0005_user_corrections.feature` — *Beekeeper flags a grounded Answer as wrong* and *Beekeeper flags an ungrounded Answer as wrong* | ✅ Covered |
-| FR-008 | No unaided-generation answers when nothing is grounded; say so, offer partial match if any | `vertical_slice_0003_no_grounding_behaviour.feature` — *Beekeeper asks a question only loosely related to the seeded Passage* and *...unrelated to the seeded Passage* | ✅ Covered |
+| FR-007 | Beekeeper can flag an Answer as wrong; retained as evaluation evidence | `corrections/user-corrections.feature` — *Beekeeper flags a grounded Answer as wrong* and *Beekeeper flags an ungrounded Answer as wrong* | ✅ Covered |
+| FR-008 | No unaided-generation answers when nothing is grounded; say so, offer partial match if any | `grounding/no-grounding-behaviour.feature` — *Beekeeper asks a question only loosely related to the seeded Passage* and *...unrelated to the seeded Passage* | ✅ Covered |
 
 ## Phase 2: The Advisor
 
@@ -34,7 +34,7 @@ This document exists so you can verify test coverage without reading any code. E
 |---|---|---|---|
 | NFR-001 | Never present output as an official diagnosis/prescription | — | ⚠️ Not explicitly tested — no scenario or copy-assertion currently checks this framing. Worth a scenario if this becomes a real risk (e.g. once Phase 2 exists) |
 | NFR-002 | Phase 1 vs. Phase 2 output visibly distinguished | — | ⚪ Not yet applicable — Phase 2 doesn't exist yet, so there's nothing to distinguish from |
-| NFR-003 | Source documents carry provenance/licence metadata | `vertical_slice_0004_source_supersession_and_provenance.feature` — *Every Answer displays its citation's provenance* | ✅ Covered |
+| NFR-003 | Source documents carry provenance/licence metadata | `provenance/source-supersession-and-provenance.feature` — *Every Answer displays its citation's provenance* | ✅ Covered |
 | NFR-004 | Never require HiveSight to be installed/in use | — | ⚪ Architectural property, not scenario-testable — verified by design (Advisor Independence From HiveSight decision: separate service, separate repo, separate database), not by a runtime test |
 
 ## Real-Provider Behaviour

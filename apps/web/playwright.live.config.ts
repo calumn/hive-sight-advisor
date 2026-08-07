@@ -12,7 +12,7 @@ import { defineBddConfig } from "playwright-bdd";
 // VOYAGE_API_KEY/ANTHROPIC_API_KEY set in the environment before running this config — it does
 // not clear them the way playwright.config.ts does, so whatever is in the shell gets used.
 const testDir = defineBddConfig({
-  features: "tests/acceptance/features/*.feature",
+  features: "tests/acceptance/features/**/*.feature",
   steps: "tests/acceptance/steps/*.ts"
 });
 

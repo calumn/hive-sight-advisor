@@ -757,3 +757,18 @@ AI contribution:
 Human judgment still required:
 
 - None immediately. Two real follow-ups were explicitly logged rather than actioned: re-running the threshold measurement against the new multi-topic document (a distinct next step, not assumed to happen automatically), and Passage-level citation display in the UI, if that ever becomes an actual product need.
+
+### 2026-08-07 Threshold Re-Measurement: The Working Theory Was Wrong, Said So Directly
+
+Human direction: "re-run the threshold measurement against the new document" — the explicitly logged follow-up from the chunking slice.
+
+AI contribution:
+
+- Extended the existing measurement script rather than rewriting it: pulled the new chunked document's passages dynamically from the curator YAML (now a list per document, post-Slice-0012), added three new queries specifically targeting each sub-topic chunk, kept the original 11 queries unchanged for a clean before/after comparison, and preserved the same 21-second-paced, cached-embedding methodology.
+- The result split into two different findings, and both were reported, not just the convenient one: sub-topic retrieval precision worked exactly as designed (all three targeted queries hit their intended chunk), but the threshold-separation problem — the actual reason chunking was built — got measurably *worse*, not better. The three off-topic UK queries all moved closer to the corpus after chunking landed, the opposite of the prior decision log entry's stated expectation.
+- Rather than quietly filing this as "inconclusive" or re-framing the chunking slice as successful on the strength of the sub-topic result alone, went back to the decision log and retracted the specific claim that had turned out to be wrong — "passage chunking would sharpen resolution and separate relevance tiers" — with a concrete explanation of the likely actual mechanism (narrower per-passage scope, but broader corpus-wide topic coverage, are two different and partly opposed levers). Presented this as a genuine correction to a previously-recorded piece of reasoning, not a new decision layered on top of an unexamined old one.
+- Gave the user three real options (correct the record and stop since nothing is broken; investigate further with a specific untested hypothesis; pivot to the product-framing question already parked in the original entry) rather than picking one, since which is worth the effort is a value judgment, not a technical one.
+
+Human judgment still required:
+
+- None immediately — user chose to correct the record and stop, since nothing is currently misclassifying and no further hypothesis was ready to test. The problem is now explicitly logged as open with no known fix, not silently reframed as solved or quietly dropped.

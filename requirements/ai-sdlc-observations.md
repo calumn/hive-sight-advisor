@@ -804,3 +804,19 @@ Human judgment still required:
 
 - The Google Cloud OAuth Client ID precondition still needs creating before the live-browser verification pass can run — flagged clearly in the slice doc, roadmap, and acceptance criteria as the one remaining open step, not silently treated as done.
 - Signing out and the cross-project alignment note to HiveSight (both explicitly named as still-open in the original pre-slice discussion) remain unscoped — logged, not actioned.
+
+### 2026-08-07 Live-Browser Verification Pass Found Three Real, Unrelated Bugs — Fixed All Three, Didn't Conflate Them
+
+Human direction: created the Google Cloud OAuth Client ID and asked for it to be wired in; then, once a real live query failed, "fix the JSON parsing bug now."
+
+AI contribution:
+
+- When the user pasted their `.env` content asking what to add, corrected course before acting: an earlier turn had wrongly told the user to create a separate `apps/web/.env` file. Actually checked `scripts/env.mjs`/`scripts/dev-servers.mjs` before answering again, found this project centralizes all dev env vars in one file (`services/advisor-api/.env`) with the launcher selectively forwarding specific keys per process, and corrected the earlier wrong guidance explicitly rather than quietly building around it.
+- That same check surfaced a real gap in the original Slice 0014 implementation: `dev-servers.mjs` forwarded `VITE_ADVISOR_API_URL` to the web process but never `VITE_GOOGLE_CLIENT_ID` — meaning sign-in would have silently never activated under the project's actual documented dev workflow (`pnpm dev:all`), only under an ad hoc `vite` invocation. Fixed the launcher script itself, not just the `.env` file, before telling the user it was ready to test.
+- Ran an actual live-browser pass rather than declaring the fix done from the code change alone: started real dev servers, drove the real UI, and let a real guest query hit real Voyage + real Claude. This surfaced a second, entirely unrelated pre-existing bug — `ClaudeGenerationProvider`'s `max_tokens=1024` truncating a genuine 5-passage comparative answer mid-JSON, first exposed now because this was the first real live query against the corpus since it grew (Slices 0007/0012). Diagnosed from the actual traceback (`JSONDecodeError: Unterminated string`) rather than guessing, fixed with both a token-budget increase and a fail-fast `TruncatedGenerationError` (checking `stop_reason` before parsing) so a future recurrence fails clearly instead of with a cryptic parse error, and added an injectable-client unit test (mirroring the existing `VoyageEmbeddingProvider` DI pattern) proving both the happy path and the truncation path without live API calls.
+- Re-ran the live pass after that fix and hit a *third*, still-different bug: the dev database was missing the Guest Workspace entirely. Traced this to an operational cause, not a code defect — an earlier `pnpm db:seed` attempt had hit Voyage's real free-tier rate limit mid-run, and since `seed_slice_0001.py` only commits once at the very end, the whole partial run rolled back silently. Fixed by inserting the Guest User/Workspace/Membership directly (matching the seed script's own idempotent `ON CONFLICT DO NOTHING` shape) rather than fighting the rate limit again for an unrelated verification pass.
+- Kept these three fixes properly separated throughout — diagnosed and reported each on its own terms (a docs/guidance error, a missing env-forwarding wire, an unrelated generation-length bug, a rolled-back seed) rather than bundling them into one vague "fixed some stuff" summary, so each remains traceable to its actual cause.
+
+Human judgment still required:
+
+- None immediately — all three findings were root-caused and fixed within this pass, verified by both the full pytest suite and a real end-to-end live-browser query that returned a grounded, cited answer.

@@ -46,7 +46,8 @@ const services = [
     args: ["--filter", "hive-sight-advisor-web", "dev", "--host", bindHost, "--port", "5183"],
     cwd: ".",
     env: {
-      VITE_ADVISOR_API_URL: advisorApiOrigin
+      VITE_ADVISOR_API_URL: advisorApiOrigin,
+      VITE_GOOGLE_CLIENT_ID: loadAdvisorApiEnv().ADVISOR_API_GOOGLE_CLIENT_ID ?? ""
     }
   }
 ];

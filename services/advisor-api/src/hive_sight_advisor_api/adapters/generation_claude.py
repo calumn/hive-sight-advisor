@@ -30,9 +30,18 @@ _ANSWER_SCHEMA = {
 }
 
 
+class TruncatedGenerationError(Exception):
+    """Claude's response hit max_tokens before completing its structured output."""
+
+
 class ClaudeGenerationProvider:
-    def __init__(self, api_key: str, model: str = "claude-opus-5") -> None:
-        self._client = anthropic.Anthropic(api_key=api_key)
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "claude-opus-5",
+        client: anthropic.Anthropic | None = None,
+    ) -> None:
+        self._client = client if client is not None else anthropic.Anthropic(api_key=api_key)
         self._model = model
 
     def generate_answer(self, query_text: str, passages: list[Passage]) -> GeneratedAnswer:
@@ -41,7 +50,10 @@ class ClaudeGenerationProvider:
         )
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=1024,
+            # Passages retrieved for comparison (up to 5, Slice 0007) can push a
+            # thorough multi-option comparison well past a short budget - 1024 was
+            # observed truncating a real 5-passage response mid-JSON.
+            max_tokens=4096,
             system=_SYSTEM_PROMPT,
             output_config={
                 "effort": "low",
@@ -54,6 +66,11 @@ class ClaudeGenerationProvider:
                 }
             ],
         )
+        if response.stop_reason == "max_tokens":
+            raise TruncatedGenerationError(
+                "Claude's response was truncated at the token limit before completing "
+                "its structured output."
+            )
         text_block = next(block for block in response.content if block.type == "text")
         payload = json.loads(text_block.text)
         return GeneratedAnswer(

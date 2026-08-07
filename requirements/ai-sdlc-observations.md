@@ -726,3 +726,19 @@ AI contribution:
 Human judgment still required:
 
 - None from this finding — genuinely closed. Worth noting as a process point: this is exactly why "verify against real state before recommending or building" matters even for something as low-stakes as picking the next backlog item, not just for code changes — recommending a real chunk of work based on an unverified doc claim would have wasted real effort building something that already existed.
+
+### 2026-08-07 Grounding Threshold Recalibration: Measured, Not Guessed, Then Decided Not To Adjust
+
+Human direction: picked up the previously-logged threshold-drift finding as the next backlog item; after reviewing real measurement data and three explicit options, chose to defer further threshold changes until passage chunking exists.
+
+AI contribution:
+
+- Rather than picking new threshold numbers from intuition, built a small measurement script and ran 11 hand-picked test queries (spanning grounded/ambiguous/ungrounded intent, both jurisdictions) against the *real* Voyage embedding model and the *current*, grown corpus — paced under the free-tier rate limit (21s between calls, embeddings cached so each unique text was only embedded once) rather than either burning through the rate limit or falling back to the stub, which would have measured the wrong thing entirely.
+- The data reproduced the original drift finding exactly (0.4548) and showed it wasn't a one-off — a second independent off-topic query showed the same pattern. But went further than confirming the known finding: noticed the "ambiguous" and "ungrounded" test categories didn't actually separate cleanly in the real numbers (an off-topic UK query scored *closer* to source material than a genuinely-related one), which meant the obvious fix — nudge the threshold — wouldn't actually solve the problem cleanly. Surfaced this complication honestly rather than presenting a simpler, tidier story than the data supported.
+- Traced that complication to a plausible structural root cause (one Passage per Corpus Document today, so a whole document collapses into a single distance measurement) rather than stopping at "the numbers don't separate cleanly, huh." This connected the finding to an already-existing, previously-unrelated roadmap item (passage chunking) that turned out to be the actual prerequisite for a real fix.
+- Presented three genuinely distinct options with reasoning rather than pushing a single recommendation on what is partly a product-values question (whether a visibly-caveated `partial` label is an acceptable outcome for an off-topic question) layered on a technical one — user chose directly, no further negotiation needed.
+- Explicitly relinked the two roadmap items (threshold recalibration and passage chunking) so their dependency is visible to a future session, not just implied.
+
+Human judgment still required:
+
+- None immediately — genuinely decided and closed for now. Revisit trigger is explicit: once chunking exists, this becomes a real, actionable decision again, not before.

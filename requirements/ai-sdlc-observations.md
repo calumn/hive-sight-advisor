@@ -742,3 +742,18 @@ AI contribution:
 Human judgment still required:
 
 - None immediately — genuinely decided and closed for now. Revisit trigger is explicit: once chunking exists, this becomes a real, actionable decision again, not before.
+
+### 2026-08-07 Passage Chunking: Surfaced A Real Scope Mismatch Before Writing Any Code
+
+Human direction: "let's go with passage chunking" — picked up the just-decided prerequisite for the threshold recalibration.
+
+AI contribution:
+
+- Before scoping the slice, read the actual seeded documents rather than trusting the roadmap's own framing. Found every existing Passage was already a single short paragraph with nothing to split — meaning "chunking today's documents" as literally described wouldn't touch the measured threshold problem at all, despite the decision log naming chunking as its prerequisite. Surfaced this contradiction directly instead of silently scoping a slice that would technically satisfy the roadmap item's letter while missing its actual point.
+- Grilled two genuinely separate design forks with the user rather than picking defaults: (1) build chunking as speculative forward-looking infrastructure vs. drop it vs. prove it against one real long document first; (2) curator-driven manual chunking vs. an automatic splitter. Both had real trade-offs and no objectively correct answer, so both went to the user rather than being decided silently.
+- During implementation, ran the real curator review flow (live Claude, not a stub) for the new document's three passage chunks — and it caught an actual drafting error: chunk 2's original text implied both Apivar and Apiguard carry a temperature restriction, directly contradicting the existing Apivar passage which explicitly states no such restriction. Retired the mistakenly-committed document, cleaned up the dev database and curator YAML by hand rather than leaving the bad row as a "retired" artifact, and re-added with corrected text — demonstrating the AI-assisted review step (Slice 0006) catching a genuine content bug, not just rubber-stamping.
+- Discovered mid-implementation that the web citation UI renders only `document_title`, never Passage text — meaning the originally-planned Gherkin scenario for "cites the specific sub-topic Passage" was unwritable as a meaningful UI assertion (two sibling Passages render identical citations). Rather than forcing a scenario that would pass without actually testing anything, dropped it and documented why in the slice doc, relying on the `CorpusRepository` test instead — the seam where chunking's value genuinely lives.
+
+Human judgment still required:
+
+- None immediately. Two real follow-ups were explicitly logged rather than actioned: re-running the threshold measurement against the new multi-topic document (a distinct next step, not assumed to happen automatically), and Passage-level citation display in the UI, if that ever becomes an actual product need.

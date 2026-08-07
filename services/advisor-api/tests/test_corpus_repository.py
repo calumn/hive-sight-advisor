@@ -266,6 +266,66 @@ def test_find_similar_passages_flags_a_superseded_documents_passage(postgres_con
     assert passage.superseded_by_document_title == "Managing Varroa (2024 edition)"
 
 
+def test_find_similar_passages_ranks_the_sub_topic_matching_passage_over_a_sibling(
+    postgres_connection,
+) -> None:
+    # A single Corpus Document curated as multiple Passages (chunking, Slice 0012):
+    # a query about one sub-topic must retrieve that sub-topic's Passage, not a
+    # sibling Passage from the same Document that happens to be document-adjacent
+    # but topically different.
+    jurisdiction_id = uuid.uuid4()
+    corpus_document_id = uuid.uuid4()
+    monitoring_passage_id = uuid.uuid4()
+    timing_passage_id = uuid.uuid4()
+
+    monitoring_embedding = _embedding((0, 1.0), (1, 0.05))
+    timing_embedding = _embedding((0, 0.05), (1, 1.0))
+    monitoring_query_embedding = _embedding((0, 0.95), (1, 0.1))
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+            (jurisdiction_id, "uk", "United Kingdom"),
+        )
+        cursor.execute(
+            """
+            INSERT INTO corpus_documents (id, jurisdiction_id, title, source, licence_terms)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                corpus_document_id,
+                jurisdiction_id,
+                "Seasonal Varroa Management: A Guide for UK Beekeepers",
+                "APHA BeeBase",
+                "Open Government Licence",
+            ),
+        )
+        cursor.execute(
+            """
+            INSERT INTO passages (id, corpus_document_id, text_content, position, embedding)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (monitoring_passage_id, corpus_document_id, "Monitoring passage text", 0, monitoring_embedding),
+        )
+        cursor.execute(
+            """
+            INSERT INTO passages (id, corpus_document_id, text_content, position, embedding)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (timing_passage_id, corpus_document_id, "Seasonal timing passage text", 1, timing_embedding),
+        )
+    postgres_connection.commit()
+
+    repository = CorpusRepository(postgres_connection)
+    results = repository.find_similar_passages(
+        monitoring_query_embedding, jurisdiction_id=jurisdiction_id, limit=1
+    )
+
+    assert len(results) == 1
+    assert results[0].id == monitoring_passage_id
+    assert results[0].text_content == "Monitoring passage text"
+
+
 def test_find_similar_passages_never_returns_a_retired_documents_passage(postgres_connection) -> None:
     jurisdiction_id = uuid.uuid4()
     retired_document_id = uuid.uuid4()

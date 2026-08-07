@@ -67,14 +67,38 @@ def test_prepare_candidate_embeds_and_reviews_against_nearby_passages(postgres_c
         source="New Source",
         source_url="https://example.com/new",
         licence_terms="New Licence",
-        passage_text="New candidate passage text.",
+        passage_texts=["New candidate passage text."],
     )
 
     assert candidate.title == "New Document"
     assert candidate.jurisdiction_code == "uk"
-    assert candidate.document_id != candidate.passage_id
-    assert candidate.advisory == "advisory for United Kingdom (1 nearby)"
+    assert len(candidate.passages) == 1
+    assert candidate.document_id != candidate.passages[0].id
+    assert candidate.passages[0].advisory == "advisory for United Kingdom (1 nearby)"
     assert review_provider.calls == [("New candidate passage text.", "United Kingdom", 1)]
+
+
+def test_prepare_candidate_reviews_each_passage_chunk_independently(postgres_connection) -> None:
+    with postgres_connection.cursor() as cursor:
+        _seed_jurisdiction_with_document(cursor)
+    postgres_connection.commit()
+
+    review_provider = _RecordingReviewProvider()
+    candidate = prepare_candidate(
+        postgres_connection,
+        embedding_provider=_StubEmbeddingProvider(),
+        review_provider=review_provider,
+        jurisdiction_code="uk",
+        title="Multi-Chunk Document",
+        source="New Source",
+        source_url=None,
+        licence_terms="New Licence",
+        passage_texts=["First chunk text.", "Second chunk text."],
+    )
+
+    assert [passage.text for passage in candidate.passages] == ["First chunk text.", "Second chunk text."]
+    assert len({passage.id for passage in candidate.passages}) == 2
+    assert [call[0] for call in review_provider.calls] == ["First chunk text.", "Second chunk text."]
 
 
 def test_prepare_candidate_raises_for_unknown_jurisdiction_code(postgres_connection) -> None:
@@ -88,7 +112,7 @@ def test_prepare_candidate_raises_for_unknown_jurisdiction_code(postgres_connect
             source="New Source",
             source_url=None,
             licence_terms="New Licence",
-            passage_text="New candidate passage text.",
+            passage_texts=["New candidate passage text."],
         )
 
 
@@ -108,7 +132,7 @@ def test_commit_candidate_persists_document_and_passage_and_appends_to_yaml(
         source="New Source",
         source_url="https://example.com/new",
         licence_terms="New Licence",
-        passage_text="New candidate passage text.",
+        passage_texts=["New candidate passage text."],
     )
     yaml_path = tmp_path / "curator_added_documents.yaml"
 
@@ -123,7 +147,7 @@ def test_commit_candidate_persists_document_and_passage_and_appends_to_yaml(
         assert row == ("New Document", "New Source", "https://example.com/new", "New Licence", "active")
 
         cursor.execute(
-            "SELECT text_content FROM passages WHERE id = %s", (candidate.passage_id,)
+            "SELECT text_content FROM passages WHERE id = %s", (candidate.passages[0].id,)
         )
         (text_content,) = cursor.fetchone()
         assert text_content == "New candidate passage text."
@@ -137,9 +161,46 @@ def test_commit_candidate_persists_document_and_passage_and_appends_to_yaml(
             "source": "New Source",
             "source_url": "https://example.com/new",
             "licence_terms": "New Licence",
-            "passage_id": str(candidate.passage_id),
-            "passage_text": "New candidate passage text.",
+            "passages": [{"id": str(candidate.passages[0].id), "text": "New candidate passage text."}],
         }
+    ]
+
+
+def test_commit_candidate_persists_multiple_passages_with_position_order(
+    postgres_connection, tmp_path
+) -> None:
+    with postgres_connection.cursor() as cursor:
+        _seed_jurisdiction_with_document(cursor)
+    postgres_connection.commit()
+
+    candidate = prepare_candidate(
+        postgres_connection,
+        embedding_provider=_StubEmbeddingProvider(),
+        review_provider=_RecordingReviewProvider(),
+        jurisdiction_code="uk",
+        title="Multi-Chunk Document",
+        source="New Source",
+        source_url=None,
+        licence_terms="New Licence",
+        passage_texts=["First chunk text.", "Second chunk text.", "Third chunk text."],
+    )
+    yaml_path = tmp_path / "curator_added_documents.yaml"
+
+    commit_candidate(postgres_connection, candidate, yaml_path)
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT text_content FROM passages WHERE corpus_document_id = %s ORDER BY position",
+            (candidate.document_id,),
+        )
+        rows = [row[0] for row in cursor.fetchall()]
+    assert rows == ["First chunk text.", "Second chunk text.", "Third chunk text."]
+
+    data = yaml.safe_load(yaml_path.read_text())
+    assert [passage["text"] for passage in data["documents"][0]["passages"]] == [
+        "First chunk text.",
+        "Second chunk text.",
+        "Third chunk text.",
     ]
 
 
@@ -204,8 +265,7 @@ def test_apply_curator_documents_seeds_documents_from_yaml(postgres_connection, 
                         "source": "Curator Source",
                         "source_url": "https://example.com/curator",
                         "licence_terms": "Curator Licence",
-                        "passage_id": str(passage_id),
-                        "passage_text": "Curator-added passage text.",
+                        "passages": [{"id": str(passage_id), "text": "Curator-added passage text."}],
                     }
                 ],
                 "retired_document_ids": [],
@@ -231,6 +291,57 @@ def test_apply_curator_documents_seeds_documents_from_yaml(postgres_connection, 
         cursor.execute("SELECT text_content FROM passages WHERE id = %s", (passage_id,))
         (text_content,) = cursor.fetchone()
         assert text_content == "Curator-added passage text."
+
+
+def test_apply_curator_documents_seeds_multiple_passages_per_document_in_position_order(
+    postgres_connection, tmp_path
+) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO jurisdictions (id, code, display_name) VALUES (%s, %s, %s)",
+            (jurisdiction_id, "uk", "United Kingdom"),
+        )
+    postgres_connection.commit()
+
+    document_id = uuid.uuid4()
+    first_passage_id = uuid.uuid4()
+    second_passage_id = uuid.uuid4()
+    yaml_path = tmp_path / "curator_added_documents.yaml"
+    yaml_path.write_text(
+        yaml.safe_dump(
+            {
+                "documents": [
+                    {
+                        "id": str(document_id),
+                        "jurisdiction_code": "uk",
+                        "title": "Multi-Chunk Document",
+                        "source": "Curator Source",
+                        "source_url": None,
+                        "licence_terms": "Curator Licence",
+                        "passages": [
+                            {"id": str(first_passage_id), "text": "First chunk text."},
+                            {"id": str(second_passage_id), "text": "Second chunk text."},
+                        ],
+                    }
+                ],
+                "retired_document_ids": [],
+            }
+        )
+    )
+
+    apply_curator_documents(postgres_connection, _StubEmbeddingProvider(), yaml_path)
+
+    with postgres_connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT id, text_content, position FROM passages WHERE corpus_document_id = %s ORDER BY position",
+            (document_id,),
+        )
+        rows = cursor.fetchall()
+    assert rows == [
+        (first_passage_id, "First chunk text.", 0),
+        (second_passage_id, "Second chunk text.", 1),
+    ]
 
 
 def test_apply_curator_documents_retires_a_document_regardless_of_origin(

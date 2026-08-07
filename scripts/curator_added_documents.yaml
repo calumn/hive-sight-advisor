@@ -5,44 +5,82 @@ documents:
   source: "Foxhound Bee Company \u2014 product information"
   source_url: https://www.foxhoundbeecompany.com/products/formic-pro
   licence_terms: All rights reserved (retailer product literature)
-  passage_id: add1d19b-d8a6-447d-b7fc-e314921419e7
-  passage_text: Formic Pro is a US EPA-registered Varroa treatment using formic acid
-    in slow-release strips placed across the top bars of the brood nest. It requires
-    daytime temperatures between fifty and eighty-five degrees Fahrenheit for optimal
-    results, and unlike synthetic acaricides, it can be used during a honey flow since
-    it leaves no residue and honey supers do not need to be removed. Two strips are
-    typically applied together for a fourteen-day treatment, or one strip followed
-    by a second after ten days for a twenty-day treatment. As an organic acid, Formic
-    Pro is approved for use in organic beekeeping operations.
+  passages:
+  - id: add1d19b-d8a6-447d-b7fc-e314921419e7
+    text: Formic Pro is a US EPA-registered Varroa treatment using formic acid in
+      slow-release strips placed across the top bars of the brood nest. It requires
+      daytime temperatures between fifty and eighty-five degrees Fahrenheit for optimal
+      results, and unlike synthetic acaricides, it can be used during a honey flow
+      since it leaves no residue and honey supers do not need to be removed. Two strips
+      are typically applied together for a fourteen-day treatment, or one strip followed
+      by a second after ten days for a twenty-day treatment. As an organic acid, Formic
+      Pro is approved for use in organic beekeeping operations.
 - id: 79f6cc6c-b715-48ae-a02d-83f385ea4ed1
   jurisdiction_code: us
   title: HopGuard 3 Varroa Treatment
   source: "Mann Lake Bee & Ag Supply \u2014 product information"
   source_url: https://www.mannlakeltd.com/feeding-medications/hopguard-3/
   licence_terms: All rights reserved (retailer product literature)
-  passage_id: 2aed4540-4336-4a72-a89e-42a556c10655
-  passage_text: "HopGuard 3 is a US EPA-registered Varroa treatment based on hop beta\
-    \ acids, applied as strips hung between the brood frames \u2014 two strips per\
-    \ brood chamber, roughly one strip per five frames of bees. It requires daytime\
-    \ temperatures above fifty degrees Fahrenheit and, unlike amitraz or thymol strips,\
-    \ is labelled safe to use during a honey flow, so honey supers can stay on the\
-    \ hive during treatment. Strips are typically left in place for up to forty-two\
-    \ days, not exceeding fifty-six days. The active ingredient is naturally derived\
-    \ from hops, though the product is not an officially certified organic treatment."
+  passages:
+  - id: 2aed4540-4336-4a72-a89e-42a556c10655
+    text: "HopGuard 3 is a US EPA-registered Varroa treatment based on hop beta acids,\
+      \ applied as strips hung between the brood frames \u2014 two strips per brood\
+      \ chamber, roughly one strip per five frames of bees. It requires daytime temperatures\
+      \ above fifty degrees Fahrenheit and, unlike amitraz or thymol strips, is labelled\
+      \ safe to use during a honey flow, so honey supers can stay on the hive during\
+      \ treatment. Strips are typically left in place for up to forty-two days, not\
+      \ exceeding fifty-six days. The active ingredient is naturally derived from\
+      \ hops, though the product is not an officially certified organic treatment."
 - id: 37163c34-e87f-439f-8cf8-333a8a3edbc9
   jurisdiction_code: us
   title: Api-Bioxal Oxalic Acid Varroa Treatment
-  source: "Mann Lake Bee & Ag Supply — product information"
+  source: "Mann Lake Bee & Ag Supply \u2014 product information"
   source_url: https://www.mannlakeltd.com/feeding-medications/api-bioxal-oxalic-acid-/
   licence_terms: All rights reserved (retailer product literature)
-  passage_id: 1caee93c-f7ab-43c5-8525-069ba2d8034c
-  passage_text: Api-Bioxal is a US EPA-registered oxalic acid dihydrate treatment
-    (97% oxalic acid dihydrate, 3% inert ingredients). As of 2026, it is the only
-    oxalic acid product registered with the EPA for Varroa treatment in the United
-    States. It can be applied as a sugar syrup dribble, as a vaporized fumigant, or
-    as a spray on package bees. Oxalic acid works best during low-brood or broodless
-    periods, since it does not penetrate capped brood cells, and unlike many synthetic
-    acaricides it can be used with honey supers on the hive. Oxalic acid is a naturally
-    occurring organic acid and is approved for use under USDA National Organic Program
-    standards for organic beekeeping operations.
+  passages:
+  - id: 1caee93c-f7ab-43c5-8525-069ba2d8034c
+    text: Api-Bioxal is a US EPA-registered oxalic acid dihydrate treatment (97% oxalic
+      acid dihydrate, 3% inert ingredients). As of 2026, it is the only oxalic acid
+      product registered with the EPA for Varroa treatment in the United States. It
+      can be applied as a sugar syrup dribble, as a vaporized fumigant, or as a spray
+      on package bees. Oxalic acid works best during low-brood or broodless periods,
+      since it does not penetrate capped brood cells, and unlike many synthetic acaricides
+      it can be used with honey supers on the hive. Oxalic acid is a naturally occurring
+      organic acid and is approved for use under USDA National Organic Program standards
+      for organic beekeeping operations.
+- id: fb52d300-a4b3-4bd7-9fef-e4da7a4b4c08
+  jurisdiction_code: uk
+  title: 'Seasonal Varroa Management: A Guide for UK Beekeepers'
+  source: APHA BeeBase
+  source_url: https://www.nationalbeeunit.com/
+  licence_terms: Open Government Licence
+  passages:
+  - id: 0b9167ff-af7d-4e13-9ca3-5143eb0e3fbc
+    text: Effective Varroa management starts with monitoring, not automatic treatment.
+      Use a natural mite drop count on an inspection tray over several days, or an
+      alcohol wash or sugar roll of around 300 bees, to estimate mite load. Check
+      mite levels at least three times across the season - after overwintering, mid-summer,
+      and before autumn treatment - since mite populations can rise sharply through
+      the season even in a colony that started low. A rising trend between checks
+      matters more than any single count.
+  - id: ed616fed-e858-41e3-9d7a-bfe5abbf6aa9
+    text: Treatment choice should suit the time of year and brood status rather than
+      defaulting to the same product year-round. Broodless-period treatments such
+      as oxalic acid vaporisation are most effective when little or no capped brood
+      is present to shelter mites. Extended-release strip treatments such as Apivar
+      and Apiguard work across a longer window regardless of brood status; Apiguard
+      needs daytime temperatures above fifteen degrees Celsius to work well, while
+      Apivar has no such temperature restriction, though both require honey supers
+      to be removed before treatment. Rotating between different active ingredients
+      across seasons, rather than relying on one product every year, helps slow the
+      development of resistance in the local mite population.
+  - id: 4a222990-6d4f-4e10-b0c2-189b2d9f303a
+    text: Spring treatment, if mite counts warrant it, should be completed before
+      the main nectar flow begins so that honey supers are not compromised. Summer
+      is primarily a monitoring period, since most chemical treatments are restricted
+      while supers are on the hive; a mid-summer check will show whether an early
+      autumn intervention is needed. Autumn, once the colony is broodless or nearly
+      so, is the primary treatment window for the season, typically in late autumn
+      or early winter, and is when broodless-period treatments such as oxalic acid
+      vaporisation are most effective.
 retired_document_ids: []

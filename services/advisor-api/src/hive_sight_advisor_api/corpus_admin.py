@@ -24,18 +24,23 @@ DEFAULT_DATA_FILE = Path(__file__).parents[4] / "scripts" / "curator_added_docum
 
 
 @dataclass(frozen=True)
+class PassageCandidate:
+    id: UUID
+    text: str
+    embedding: list[float]
+    advisory: str
+
+
+@dataclass(frozen=True)
 class PreparedCandidate:
     document_id: UUID
-    passage_id: UUID
     jurisdiction_id: UUID
     jurisdiction_code: str
     title: str
     source: str
     source_url: str | None
     licence_terms: str
-    passage_text: str
-    embedding: list[float]
-    advisory: str
+    passages: list[PassageCandidate]
 
 
 def _find_jurisdiction(connection: psycopg.Connection, jurisdiction_code: str) -> tuple[UUID, str]:
@@ -72,35 +77,37 @@ def prepare_candidate(
     source: str,
     source_url: str | None,
     licence_terms: str,
-    passage_text: str,
+    passage_texts: list[str],
     nearby_limit: int = 3,
 ) -> PreparedCandidate:
     register_vector(connection)
     jurisdiction_id, jurisdiction_display_name = _find_jurisdiction(connection, jurisdiction_code)
-    embedding = embedding_provider.embed(passage_text)
-
     corpus_repository = CorpusRepository(connection)
-    nearby_passages = corpus_repository.find_similar_passages(
-        embedding, jurisdiction_id=jurisdiction_id, limit=nearby_limit
-    )
-    advisory = review_provider.review_candidate(
-        candidate_text=passage_text,
-        jurisdiction_display_name=jurisdiction_display_name,
-        nearby_passages=nearby_passages,
-    )
+
+    passages = []
+    for passage_text in passage_texts:
+        embedding = embedding_provider.embed(passage_text)
+        nearby_passages = corpus_repository.find_similar_passages(
+            embedding, jurisdiction_id=jurisdiction_id, limit=nearby_limit
+        )
+        advisory = review_provider.review_candidate(
+            candidate_text=passage_text,
+            jurisdiction_display_name=jurisdiction_display_name,
+            nearby_passages=nearby_passages,
+        )
+        passages.append(
+            PassageCandidate(id=uuid4(), text=passage_text, embedding=embedding, advisory=advisory)
+        )
 
     return PreparedCandidate(
         document_id=uuid4(),
-        passage_id=uuid4(),
         jurisdiction_id=jurisdiction_id,
         jurisdiction_code=jurisdiction_code,
         title=title,
         source=source,
         source_url=source_url,
         licence_terms=licence_terms,
-        passage_text=passage_text,
-        embedding=embedding,
-        advisory=advisory,
+        passages=passages,
     )
 
 
@@ -123,18 +130,20 @@ def commit_candidate(
                 candidate.licence_terms,
             ),
         )
-        cursor.execute(
-            """
-            INSERT INTO passages (id, corpus_document_id, text_content, embedding)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                candidate.passage_id,
-                candidate.document_id,
-                candidate.passage_text,
-                candidate.embedding,
-            ),
-        )
+        for position, passage in enumerate(candidate.passages):
+            cursor.execute(
+                """
+                INSERT INTO passages (id, corpus_document_id, text_content, position, embedding)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    passage.id,
+                    candidate.document_id,
+                    passage.text,
+                    position,
+                    passage.embedding,
+                ),
+            )
     connection.commit()
 
     data = _load_yaml_data(yaml_path)
@@ -146,8 +155,7 @@ def commit_candidate(
             "source": candidate.source,
             "source_url": candidate.source_url,
             "licence_terms": candidate.licence_terms,
-            "passage_id": str(candidate.passage_id),
-            "passage_text": candidate.passage_text,
+            "passages": [{"id": str(passage.id), "text": passage.text} for passage in candidate.passages],
         }
     )
     _save_yaml_data(yaml_path, data)
@@ -197,7 +205,6 @@ def apply_curator_documents(
 
     for document in data["documents"]:
         jurisdiction_id, _ = _find_jurisdiction(connection, document["jurisdiction_code"])
-        embedding = embedding_provider.embed(document["passage_text"])
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -218,21 +225,25 @@ def apply_curator_documents(
                     document["licence_terms"],
                 ),
             )
-            cursor.execute(
-                """
-                INSERT INTO passages (id, corpus_document_id, text_content, embedding)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE SET
-                    text_content = EXCLUDED.text_content,
-                    embedding = EXCLUDED.embedding
-                """,
-                (
-                    UUID(document["passage_id"]),
-                    UUID(document["id"]),
-                    document["passage_text"],
-                    embedding,
-                ),
-            )
+            for position, passage in enumerate(document["passages"]):
+                embedding = embedding_provider.embed(passage["text"])
+                cursor.execute(
+                    """
+                    INSERT INTO passages (id, corpus_document_id, text_content, position, embedding)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        text_content = EXCLUDED.text_content,
+                        position = EXCLUDED.position,
+                        embedding = EXCLUDED.embedding
+                    """,
+                    (
+                        UUID(passage["id"]),
+                        UUID(document["id"]),
+                        passage["text"],
+                        position,
+                        embedding,
+                    ),
+                )
         connection.commit()
 
     if data["retired_document_ids"]:
@@ -244,12 +255,12 @@ def apply_curator_documents(
         connection.commit()
 
 
-def _read_passage_text(text: str | None, text_file: str | None) -> str:
-    if text_file:
-        return Path(text_file).read_text().strip()
-    if text:
-        return text
-    raise SystemExit("Provide --text or --text-file.")
+def _read_passage_texts(texts: list[str] | None, text_files: list[str] | None) -> list[str]:
+    if text_files:
+        return [Path(text_file).read_text().strip() for text_file in text_files]
+    if texts:
+        return list(texts)
+    raise SystemExit("Provide --text (repeatable, one per passage) or --text-file (repeatable).")
 
 
 def main() -> None:
@@ -262,8 +273,12 @@ def main() -> None:
     add_parser.add_argument("--source", required=True)
     add_parser.add_argument("--source-url", default=None)
     add_parser.add_argument("--licence-terms", required=True)
-    add_parser.add_argument("--text")
-    add_parser.add_argument("--text-file")
+    add_parser.add_argument(
+        "--text", action="append", help="Text for one passage. Repeat once per passage chunk."
+    )
+    add_parser.add_argument(
+        "--text-file", action="append", help="Path to a passage's text. Repeat once per passage chunk."
+    )
     add_parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt.")
     add_parser.add_argument("--data-file", default=DEFAULT_DATA_FILE)
 
@@ -281,7 +296,7 @@ def main() -> None:
     register_vector(connection)
 
     if args.command == "add-document":
-        passage_text = _read_passage_text(args.text, args.text_file)
+        passage_texts = _read_passage_texts(args.text, args.text_file)
         candidate = prepare_candidate(
             connection,
             embedding_provider=VoyageEmbeddingProvider(api_key=settings.voyage_api_key),
@@ -291,18 +306,22 @@ def main() -> None:
             source=args.source,
             source_url=args.source_url,
             licence_terms=args.licence_terms,
-            passage_text=passage_text,
+            passage_texts=passage_texts,
         )
         print("\n--- AI-assisted review (advisory only — you decide) ---")
-        print(candidate.advisory)
+        for index, passage in enumerate(candidate.passages, start=1):
+            print(f"[chunk {index}/{len(candidate.passages)}]")
+            print(passage.advisory)
         print("---\n")
         if not args.yes:
-            confirmation = input(f'Add "{candidate.title}" to the corpus? [y/N] ').strip().lower()
+            confirmation = input(
+                f'Add "{candidate.title}" ({len(candidate.passages)} passage(s)) to the corpus? [y/N] '
+            ).strip().lower()
             if confirmation != "y":
                 print("Not added.")
                 return
         commit_candidate(connection, candidate, Path(args.data_file))
-        print(f"Added document {candidate.document_id} (passage {candidate.passage_id}).")
+        print(f"Added document {candidate.document_id} ({len(candidate.passages)} passage(s)).")
     elif args.command == "retire-document":
         document_id = UUID(args.document_id) if args.document_id else None
         resolved_id = retire_document(

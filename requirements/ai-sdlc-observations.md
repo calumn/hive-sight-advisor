@@ -712,3 +712,17 @@ AI contribution:
 Human judgment still required:
 
 - None — this one closed cleanly. Worth noting as a process point: the earlier finding was logged with appropriate uncertainty ("not yet root-caused," "plausibly," "needs its own investigation") rather than asserted as fact, which made correcting it later a clean edit rather than a retraction of something stated too confidently.
+
+### 2026-08-07 "CI Pipeline" Roadmap Item Was Stale — Verified Before Building Anything
+
+Human direction: asked what's next in the backlog; AI recommended the CI pipeline item based on the roadmap's own text ("No `.github/workflows` exists yet").
+
+AI contribution:
+
+- Before starting any work, checked the actual repo state rather than proceeding straight from the roadmap's claim — found `.github/workflows/ci.yml` already exists, dated 2026-08-03, well-structured (three jobs matching the project's real test surfaces: backend pytest+ruff, web typecheck+Vitest, acceptance Playwright+Gherkin).
+- Checked actual run history via `gh run list` rather than assuming "exists" meant "works." Found one red run (Slice 0011) and investigated rather than either ignoring it or assuming it indicated a real problem — `gh run view` showed GitHub-side infrastructure failures ("job was not acquired by Runner," "Service Unavailable"), not a code or test failure. Every other run, including everything from this session's LangGraph/HiveSight-integration work, has passed.
+- Corrected the stale roadmap line rather than silently building a second/redundant CI setup to match a recommendation that turned out to be based on inaccurate information.
+
+Human judgment still required:
+
+- None from this finding — genuinely closed. Worth noting as a process point: this is exactly why "verify against real state before recommending or building" matters even for something as low-stakes as picking the next backlog item, not just for code changes — recommending a real chunk of work based on an unverified doc claim would have wasted real effort building something that already existed.

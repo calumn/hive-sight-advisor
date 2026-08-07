@@ -62,7 +62,7 @@ Per the V1 Scope Boundary decision, none of this begins until Phase 1's groundin
 ### Deployment and operations
 
 - **Stand up the Fly.io production environment.** Chosen per the Deployment Platform decision, not yet built — no production-like environment exists today, only local dev.
-- **CI pipeline.** No `.github/workflows` or equivalent exists yet — the full test suite (Python, Vitest, Playwright) only runs when someone runs it locally.
+- ~~**CI pipeline.**~~ **Done, and this line was stale** — `.github/workflows/ci.yml` was actually built 2026-08-03 (three jobs: backend pytest+ruff, web typecheck+Vitest, acceptance Playwright+Gherkin), corrected here 2026-08-07 after re-checking rather than trusting this line. Verified via `gh run list`: consistently green since, with one red run (Slice 0011, 2026-08-06) that turned out to be pure GitHub infrastructure failure on inspection ("job was not acquired by Runner," "Service Unavailable"), not a real code problem — every commit's actual test content has passed.
 - **Observability/logging for the API.** Every slice doc through 0005 lists this layer as "Not touched" — there is no logging or monitoring beyond what FastAPI/uvicorn emit by default.
 
 ### Retrieval quality

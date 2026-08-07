@@ -35,6 +35,15 @@ If a slice's acceptance criteria don't include real Gherkin coverage, that itsel
 - Never duplicate implementation detail (which repository method, which prompt, which threshold value) into this doc. That belongs in the vertical-slice docs (`architecture/vertical-slice-*.md`) and the decision log — link to those rather than restating them here.
 - Be honest about what a "Covered" row actually proves. If the acceptance suite runs on stub providers rather than the real AI integration, say so once, clearly, rather than letting "Covered" imply more real-world confidence than the tests actually give.
 
+## Choosing the right proof seam, not defaulting to Gherkin
+
+Browser-level Gherkin is the default proof seam, but it is not always the *right* one, and forcing a claim into it anyway can do real damage. Two concrete cases already hit in this project:
+
+- **Shared process state.** The acceptance suite runs every scenario sequentially against one shared server process. A claim that depends on process-wide state (a rate limiter, a singleton counter) can't be proven at browser level without either poisoning every other scenario's state in the same run or standing up a second, fully isolated config for one scenario. Prove it at the unit/integration seam instead, with a scoped dependency override — see Slice 0013.
+- **External providers that can't be automated.** A real third-party consent flow (Google sign-in, an OAuth screen) cannot be driven by Playwright without either scripting the provider's own UI (brittle, and not this project's dependency to own) or adding a test-only bypass to production code so the app *thinks* it's signed in. The bypass is the one move to reject outright — it is a real, if narrow, security-relevant code path added purely for test convenience. Accept the coverage move instead: prove what the browser genuinely can prove (the sign-in *gate* itself), and prove full behaviour at the pytest/`TestClient` seam — see Slice 0014.
+
+When this happens: don't quietly drop coverage, and don't force it into the wrong seam either. Name the constraint explicitly in the slice doc's Test Seams/Open Questions section and in the relevant `traceability.md` row, so a future reader sees *why* a requirement is proven where it is, not just that it is. A reduction in browser-level coverage forced by a real constraint like this is an honest trade-off worth surfacing to the user as its own decision, not something to resolve silently.
+
 ## Format
 
 A single table per requirements section (Phase 1, Phase 2, Non-Functional — matching `requirements/requirements.md`'s own structure), each row: Requirement | Description | Proven by | Status. Link the "Proven by" cell to the actual feature file and scenario name so the user can open it directly.

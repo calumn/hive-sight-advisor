@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from hive_sight_advisor_api.routers import correction, hivesight_integration, query
 from hive_sight_advisor_api.settings import load_settings
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 def create_app() -> FastAPI:

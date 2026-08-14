@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from typing import Any, TypedDict
 from uuid import UUID
@@ -16,6 +18,8 @@ from hive_sight_advisor_api.repositories.proposed_treatment_repository import (
     ProposedTreatmentRepository,
 )
 from hive_sight_advisor_api.workflows.answer_query import Answer, AnswerQueryWorkflow
+
+logger = logging.getLogger(__name__)
 
 # A dedicated internal Workspace for agentic, app-to-app requests that have no real
 # Beekeeper/Workspace context — see migrations/0006_slice_0008_system_workspace.sql
@@ -85,6 +89,7 @@ class TreatmentPlanWorkflow:
         return graph
 
     def _recommend(self, state: TreatmentPlanState) -> dict[str, Any]:
+        started_at = time.monotonic()
         query_text = state["query_text"]
         reason = state.get("rejection_reason")
         if reason:
@@ -96,6 +101,12 @@ class TreatmentPlanWorkflow:
             workspace_id=SYSTEM_WORKSPACE_ID,
             query_text=query_text,
             jurisdiction_id=state["jurisdiction_id"],
+        )
+        self._log(
+            "recommend.completed",
+            state["hive_id"],
+            grounding_status=answer.grounding_status,
+            duration_ms=_elapsed_ms(started_at),
         )
         return {"answer": answer}
 
@@ -109,10 +120,13 @@ class TreatmentPlanWorkflow:
             answer_id=answer.id,
             supersedes_proposed_treatment_id=state.get("proposed_treatment_id"),
         )
+        self._log("suggest.recorded", state["hive_id"], proposed_treatment_id=str(proposed_treatment.id))
         return {"proposed_treatment_id": proposed_treatment.id}
 
     def _wait_and_resume(self, state: TreatmentPlanState) -> dict[str, Any]:
+        self._log("wait.suspended", state["hive_id"], proposed_treatment_id=str(state["proposed_treatment_id"]))
         resume_value = interrupt("awaiting-hivesight-response")
+        self._log("wait.resumed", state["hive_id"], action=resume_value["action"])
         proposed_treatment_id = state["proposed_treatment_id"]
         assert proposed_treatment_id is not None
         if resume_value["action"] == "accept":
@@ -128,7 +142,19 @@ class TreatmentPlanWorkflow:
     def _thread_id(self, hive_id: str) -> str:
         return f"treatment-plan-{hive_id}"
 
+    def _log(self, event: str, hive_id: str, **fields: object) -> None:
+        detail = " ".join(f"{key}={value}" for key, value in fields.items())
+        logger.info(
+            "treatment_plan.%s hive_id=%s thread_id=%s %s",
+            event,
+            hive_id,
+            self._thread_id(hive_id),
+            detail,
+            extra={"event": f"treatment_plan.{event}", "hive_id": hive_id, **fields},
+        )
+
     def request_treatment_plan(self, hive_id: str, jurisdiction_id: UUID, query_text: str) -> Answer:
+        started_at = time.monotonic()
         config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
 
         # Idempotency: a hive with an unresolved (still-suggested) Proposed Treatment
@@ -143,6 +169,7 @@ class TreatmentPlanWorkflow:
             if existing is not None and existing.status == "suggested":
                 existing_answer = state_before.values.get("answer")
                 assert existing_answer is not None
+                self._log("request.deduplicated", hive_id, duration_ms=_elapsed_ms(started_at))
                 return existing_answer
 
         result = self._graph.invoke(
@@ -160,31 +187,43 @@ class TreatmentPlanWorkflow:
         )
         answer = result["answer"]
         assert answer is not None
+        self._log("request.completed", hive_id, duration_ms=_elapsed_ms(started_at))
         return answer
 
     def confirm_completed(self, hive_id: str) -> ProposedTreatment | None:
+        started_at = time.monotonic()
         config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
         state_before = self._graph.get_state(config)
         proposed_treatment_id = state_before.values.get("proposed_treatment_id")
         self._graph.invoke(Command(resume={"action": "accept"}), config=config)
         if proposed_treatment_id is None:
+            self._log("confirm_completed.no_pending_suggestion", hive_id, duration_ms=_elapsed_ms(started_at))
             return None
+        self._log("confirm_completed.completed", hive_id, duration_ms=_elapsed_ms(started_at))
         return self._proposed_treatment_repository.find_by_id(proposed_treatment_id)
 
     def reject_treatment(self, hive_id: str, reason: str) -> RejectionOutcome | None:
+        started_at = time.monotonic()
         config = {"configurable": {"thread_id": self._thread_id(hive_id)}}
         state_before = self._graph.get_state(config)
         proposed_treatment_id = state_before.values.get("proposed_treatment_id")
         if proposed_treatment_id is None:
+            self._log("reject.no_pending_suggestion", hive_id, duration_ms=_elapsed_ms(started_at))
             return None
 
         revision_count = state_before.values.get("revision_count", 0)
         if revision_count >= MAX_REVISIONS:
             answer = state_before.values.get("answer")
             assert answer is not None
+            self._log("reject.revisions_exhausted", hive_id, duration_ms=_elapsed_ms(started_at))
             return RejectionOutcome(answer=answer, revision_exhausted=True)
 
         result = self._graph.invoke(Command(resume={"action": "reject", "reason": reason}), config=config)
         answer = result["answer"]
         assert answer is not None
+        self._log("reject.revised", hive_id, duration_ms=_elapsed_ms(started_at))
         return RejectionOutcome(answer=answer, revision_exhausted=False)
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return round((time.monotonic() - started_at) * 1000)

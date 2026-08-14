@@ -328,6 +328,41 @@ def test_reject_treatment_when_the_revision_itself_is_ungrounded(
     assert proposed_treatment_repository.find_latest_suggested_by_hive("hivesight-hive-12") is None
 
 
+def test_request_and_confirm_emit_the_expected_observable_events(
+    postgres_connection, checkpointer, caplog
+) -> None:
+    jurisdiction_id = uuid.uuid4()
+    with postgres_connection.cursor() as cursor:
+        _seed_jurisdiction_with_passage(cursor, jurisdiction_id)
+    postgres_connection.commit()
+
+    workflow, _proposed_treatment_repository = _build_workflow(postgres_connection, checkpointer)
+
+    with caplog.at_level("INFO", logger="hive_sight_advisor_api.workflows.treatment_plan_workflow"):
+        workflow.request_treatment_plan(
+            hive_id="hivesight-hive-30",
+            jurisdiction_id=jurisdiction_id,
+            query_text="Mite count is high, what treatment should I use?",
+        )
+        workflow.confirm_completed("hivesight-hive-30")
+
+    events = [record.event for record in caplog.records if hasattr(record, "event")]
+    assert events == [
+        "treatment_plan.recommend.completed",
+        "treatment_plan.suggest.recorded",
+        "treatment_plan.wait.suspended",
+        "treatment_plan.request.completed",
+        # LangGraph replays a node from the top on resume, up to the interrupt()
+        # call, so "wait.suspended" (logged before interrupt()) fires again here
+        # before "wait.resumed" (logged after it) — not a bug, a real semantic of
+        # how LangGraph resumes suspended graphs.
+        "treatment_plan.wait.suspended",
+        "treatment_plan.wait.resumed",
+        "treatment_plan.confirm_completed.completed",
+    ]
+    assert all(record.hive_id == "hivesight-hive-30" for record in caplog.records if hasattr(record, "hive_id"))
+
+
 def test_repeating_a_request_while_a_suggestion_is_still_pending_returns_the_same_suggestion(
     postgres_connection, checkpointer
 ) -> None:
